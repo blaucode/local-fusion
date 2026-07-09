@@ -34,6 +34,11 @@ v2.0 closes exactly those gaps. See [01-loop-engineering-assessment.md](./01-loo
 
 ## Document map
 
+**Start here:** [PRD.md](./PRD.md) (what & why, requirements, success metrics) →
+[PROJECT-PLAN.md](./PROJECT-PLAN.md) (milestones M0–M5 + engineering process) →
+[adr/](./adr/README.md) (the 9 architecture decisions). The numbered docs below are the
+deep design and background analysis behind them.
+
 | Doc | Contents |
 |---|---|
 | [01-loop-engineering-assessment.md](./01-loop-engineering-assessment.md) | Is v1 "loop engineering"? Gap analysis. What v1 does right / focus / distractions. |

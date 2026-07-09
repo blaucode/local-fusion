@@ -1,0 +1,50 @@
+# ADR-007: Engine-enforced budgets and termination
+
+**Status:** Accepted
+**Date:** 2026-07-09 · **Deciders:** Adolfo
+
+## Context
+
+v1's termination rules are skill-prompt conventions ("re-judge once, then stop") — a
+well-behaved agent follows them; a confused one loops. Loop-engineering canon: termination
+is half the design — layered exits (verifier, step cap, time/token budget, no-progress
+detection), enforced by the system, not requested of the model.
+
+## Decision
+
+The job runner enforces, per job, with config defaults and per-call overrides:
+**wall-clock budget** (plan 30m/task default, coder-fusion 15m), **step cap**
+(max model calls), **token budget** (bounds latency even on flat-rate plans),
+**no-progress detection** (same stage failing twice identically → job fails, no silent
+degradation loop), and a **judge-retry ledger** in the manifest — a third judge attempt on
+the same task returns `escalate_to_human`, turning v1's convention into a guarantee.
+Error taxonomy: `recoverable` (model dropout → degrade, v1 semantics kept) vs `fatal`
+(missing key, budget, no-progress) — always surfaced in job status, never a hang.
+
+## Options Considered
+
+### A: Keep conventions in the skill — works until it doesn't; unattended/overnight use
+(S2 scenario) is irresponsible without hard stops. Rejected as sole mechanism (skill keeps
+the conventions as *narration*, engine holds the *law*).
+### B: Global budgets only (server-wide caps) — blunt; one runaway plan starves other jobs
+invisibly. Rejected.
+### C: Per-job layered budgets + ledger *(chosen)*.
+
+## Trade-off Analysis
+
+This is cheap insurance (a context deadline, counters, and a small ledger) against the
+expensive failure class — silent token burn and stuck loops — that kills trust in unattended
+operation. PRD Goal 3 and the kill-switch success criterion depend on it.
+
+## Consequences
+
+- Easier: overnight jobs, cost predictability, debugging (budget_exhausted says *where*).
+- Harder: defaults need tuning against real stage timings (start from v1's measured ~7
+  min/task plan, 420s judge calls); partial artifacts on kill must be coherent (write-as-you-go,
+  already v1's style).
+- Revisit: per-stage token *input* budgets once Q8 metrics exist (32K ceiling).
+
+## Action Items
+1. [ ] Budgets in `internal/jobs` via context deadlines + call counters (M2)
+2. [ ] Judge-retry ledger in manifest; refusal path + message (M2)
+3. [ ] Kill-switch CI test = M2 exit-gate item (shared with ADR-003)
