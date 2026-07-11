@@ -52,6 +52,24 @@ judge + review); plan-solo ports first in M3; v1 keeps serving planning host-sid
 then. The only accepted cost: async *planning* arrives a few sessions later than the proxy
 would have delivered it.
 
+## Amendment (2026-07-11): S1 spike evidence — Q1 partial PASS, no fallback needed so far
+
+Measured (spike code: `spikes/s1-providers`, run via plain `net/http` from the
+`golang:1.25` container, default Go TLS — no utls, no curl shim):
+
+- **Featherless:** unauthenticated `POST /v1/chat/completions` → HTTP **401 JSON from the
+  API origin**, `server: cloudflare`, `cf-ray` present, 1.25s. Go's TLS handshake **passed
+  the Cloudflare edge** that blocked v1's urllib (403 / error 1010). The v1 failure mode
+  did not reproduce.
+- **Ollama Cloud:** 401 JSON, `server: Google Frontend` — not behind Cloudflare at all;
+  the Q1 risk never applied to this provider.
+
+Claim labels: *measured* = TLS + edge passage to origin JSON error handlers; *unknown* =
+authenticated completion. **Full PASS pending:** set `FEATHERLESS_API_KEY` /
+`OLLAMA_API_KEY` (providers.env) and re-run the same probe — it auto-upgrades to one real
+`max_tokens=16` completion per provider. On current evidence the utls / curl-shim
+fallbacks are unnecessary.
+
 ## Trade-off Analysis
 
 The deciding constraint is Goal 2 (15-minute adoption on machines we don't control). Only B

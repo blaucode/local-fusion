@@ -36,6 +36,17 @@ This is cheap insurance (a context deadline, counters, and a small ledger) again
 expensive failure class — silent token burn and stuck loops — that kills trust in unattended
 operation. PRD Goal 3 and the kill-switch success criterion depend on it.
 
+## Amendment (2026-07-11): S3 spike evidence — kill-switch mechanism PASS
+
+Measured (spike code: `spikes/s3-killswitch`, `go test -race` in `golang:1.25` container):
+a 150ms `context.WithTimeout` budget cut through an errgroup panel of three fake
+10-minute wedged stages in exactly 0.15s (`context.DeadlineExceeded` surfaced, never a
+hang); a 20-job cancellation storm (100ms budgets) drained every panel goroutine — no
+leaks (`runtime.NumGoroutine` settles), no races. The context-deadline + errgroup design
+this ADR mandates for `internal/jobs` is confirmed workable; M2 implements it against
+real provider calls (cancellability of in-flight HTTP is Q4's residual risk, covered by
+the M2 kill-switch exit-gate test).
+
 ## Consequences
 
 - Easier: overnight jobs, cost predictability, debugging (budget_exhausted says *where*).

@@ -44,7 +44,7 @@ define ok
 endef
 
 .DEFAULT_GOAL := help
-.PHONY: help build test race lint check soak docker-build docker-run docker-stop docker-logs replay prompts-check docs-check clean
+.PHONY: help build test race lint check soak docker-build docker-run docker-stop docker-logs replay prompts-check docs-check clean spike-s1 spike-s2 spike-s3
 
 # ─── meta ────────────────────────────────────────────────────────────────────
 help: ## 📖 Show this help
@@ -122,6 +122,26 @@ docs-check: ## 📚 Verify all markdown links resolve (docs/ + product-docs/)
 	@printf "$(CYAN)📚 Checking doc links (in $(PY_IMAGE))...$(RESET)\n"
 	@$(RUN_PY) python3 scripts/check-links.py
 	$(call ok,"links OK")
+
+# ─── M1 spikes (own module in spikes/; SDK needs Go >= 1.25) ─────────────────
+SPIKE_GO_IMAGE := golang:1.25
+RUN_GO_SPIKE   := docker run --rm -v $(CURDIR):/src -w /src/spikes \
+                  -v $(GOCACHE_VOL):/root/.cache -v $(GOCACHE_VOL)-mod:/go/pkg/mod \
+                  -e GOFLAGS=-buildvcs=false
+
+spike-s1: ## 🕵️ S1: net/http vs Featherless/Ollama (uses providers.env keys when present)
+	@if [ -f $(ENVFILE) ]; then \
+		$(RUN_GO_SPIKE) --env-file $(ENVFILE) $(SPIKE_GO_IMAGE) go run ./s1-providers; \
+	else \
+		printf "$(YELLOW)⚠ no providers.env — running unauthenticated edge probe only$(RESET)\n"; \
+		$(RUN_GO_SPIKE) $(SPIKE_GO_IMAGE) go run ./s1-providers; \
+	fi
+
+spike-s2: ## 📡 S2: serve lf_echo over Streamable HTTP on 127.0.0.1:8484 (Ctrl-C to stop)
+	@$(RUN_GO_SPIKE) -p 127.0.0.1:8484:8484 $(SPIKE_GO_IMAGE) go run ./s2-echo -addr :8484
+
+spike-s3: ## ⏱️ S3: budget kill-switch prototype tests (-race)
+	@$(RUN_GO_SPIKE) $(SPIKE_GO_IMAGE) go test -race -v ./s3-killswitch/
 
 # ─── housekeeping ────────────────────────────────────────────────────────────
 clean: ## 🧹 Remove build artifacts

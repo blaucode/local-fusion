@@ -54,6 +54,23 @@ in-flight jobs. Persistent job state allows idempotent resubmit that skips compl
 but that is new design work, not a free property. Any stdio-first decision must say this
 out loud and re-raise HTTP as the target, not the fallback-forever.
 
+## Amendment (2026-07-11): S2 spike evidence — SDK + Streamable HTTP work; Cline/Cursor pending
+
+Measured (spike code: `spikes/s2-echo`, official `modelcontextprotocol/go-sdk` **v1.6.1**,
+server in a `golang:1.25` container on `127.0.0.1:8484`):
+
+- **Toolchain finding:** SDK v1.6.1 requires **Go ≥ 1.25**; adopting it means bumping the
+  repo's pinned `golang:1.23` image to `golang:1.25` (spikes already run on 1.25).
+- **Protocol (raw probe):** initialize → SSE + `Mcp-Session-Id`; `notifications/initialized`
+  202; `tools/list` returns `lf_echo` with input **and** output schemas auto-inferred from
+  Go structs (`jsonschema` tags); `tools/call` returns `content` + `structuredContent`.
+- **Claude Code by URL: PASS.** `claude mcp add --transport http … http://localhost:8484/mcp`
+  → connected; a `claude -p` session discovered and called `lf_echo`, returning the exact
+  structured JSON.
+- **Cline (the acceptance bar) and Cursor: PENDING** — require GUI verification by the
+  owner against the same URL. The S2 verdict, and action item 1, stay open until Cline
+  passes or the stdio-first partial retreat (above) is invoked.
+
 ## Consequences
 
 - Easier: `docker run` adoption, shared team server later (per-dev first, Q11), agent

@@ -59,6 +59,19 @@ v1 extraction script output (`make prompts-check`); ADR statuses set.
 **Exit gate:** written PASS/FAIL per spike in `adr/` amendments; on FAIL, fallback selected
 (curl shim / alt SDK / stdio-first) **before** M2 code.
 
+**M1 status (2026-07-11):** spike code in `spikes/` (own Go module — SDK dep enters the
+product `go.mod` only on adoption; note: SDK v1.6.1 needs Go ≥ 1.25).
+- [x] **S3 kill-switch: PASS** — ADR-007 amendment; `spikes/s3-killswitch` green under
+  `-race` (150ms budget kills a wedged 3-stage panel in 0.15s; 20-job cancellation storm,
+  zero leaks).
+- [ ] **S1: partial PASS** — ADR-001 amendment; plain `net/http` passed the Cloudflare
+  edge (Featherless 401 JSON from origin, `cf-ray` present; Ollama isn't behind
+  Cloudflare). Full PASS = add `providers.env` keys and re-run `make spike-s1` (probe
+  auto-upgrades to a real completion).
+- [ ] **S2: protocol + Claude Code PASS** — ADR-002 amendment; `lf_echo` served from a
+  container, called by Claude Code by URL. Pending: **Cline (the bar)** + Cursor GUI
+  checks against `http://localhost:8484/mcp` (`make spike-s2` serves it).
+
 ### M2 — Pure-Go shell + the quality gate (6–10 sessions) → **pilot starts here**
 *(Amended 2026-07-10, owner decision: the "Go shell, Python brain" proxy stage is dropped —
 see ADR-001 amendment. Python never enters the v2 image; v1 keeps running host-side.)*
