@@ -63,11 +63,12 @@ human-approved ones. The pattern is already native here — registry updates and
 work as **proposal + approval**. That is local-fusion's universal answer to "can the loop
 feed itself?": *yes, up to but never through the approval.*
 
-The same principle exists independently in [haft](https://github.com/m0n0x41d/haft)'s
-Transformer Mandate — agents frame, explore, and compare; only the human principal records
-the binding decision. That convergence is why a haft DecisionRecord is the strongest form of
-intent ref we accept (ADR-011 amendment), and why haft interop is skill-side and natural
-rather than bolted on (PRD R14).
+How the intent documents get authored is deliberately **outside the loop's scope**. Humans
+may write them by hand or with governance tooling — e.g. [haft](https://github.com/m0n0x41d/haft),
+whose Transformer Mandate (agents frame and compare; only the human principal binds) is this
+same principle implemented independently, and which the author uses upstream to produce PRDs
+and ADRs. The loop consumes intent documents; it does not integrate with, depend on, or care
+about the tool that produced them.
 
 ## 4. Verification doctrine
 

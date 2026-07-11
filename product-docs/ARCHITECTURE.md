@@ -83,16 +83,6 @@ in the artifact store — an agent that crashes can reconnect and poll.
 The skill's "this takes minutes, don't retry" warnings become a simple poll loop:
 submit → poll `lf_job` every 30–60s → proceed. MCP timeouts become irrelevant.
 
-### haft interop (skill-side, optional — PRD R14, ADR-011 amendment)
-
-When the project uses [haft](https://github.com/m0n0x41d/haft) and its MCP is connected to
-the agent, the skill (not the engine — ADR-004) integrates at three points: a haft
-DecisionRecord serves as `intent.ref`; `.haft/` spec/decision artifacts are included in
-`lf_plan` context so deliberation anchors on the governed spec; and after `lf_judge` the
-verdict is attached as evidence to the governing decision (`haft_decision action=evidence`),
-feeding haft's trust/R_eff loop. The two systems stay complementary: haft governs human
-decisions and evidence lifecycle; local-fusion supplies multi-model deliberation and the
-calibrated gate. Absent haft, every step is a no-op.
 
 ## 4. Budgets, termination, no-progress (engine-enforced)
 

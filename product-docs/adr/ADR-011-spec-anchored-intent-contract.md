@@ -61,16 +61,18 @@ that boundary and makes everything auditable after the fact.
   and expiry are new small store features; teams must actually write charters for chores.
 - Revisit: intent-tier defaults per repo config (R9) once pilots show which tier dominates.
 
-## Amendment (2026-07-10): haft DecisionRecords as first-class intent refs
+## Amendment (2026-07-10, superseding same-day haft-interop amendment): intent authoring is out of scope
 
-[haft](https://github.com/m0n0x41d/haft)'s Transformer Mandate (agents frame and compare;
-only the human principal records the binding decision — `h-decide` is manual-only) is this
-ADR's principle implemented independently. Therefore a haft DRR reference
-(`intent.ref: "haft:dec-YYYYMMDD-..."`) satisfies the feature/fix tiers with the strongest
-available ownership evidence: invariants, claims, and a human binding act. Integration is
-**skill-side only** — the server never reads `.haft/` (ADR-004); the skill passes DRR
-content in context and, post-verdict, attaches gate evidence back to the decision via the
-haft MCP. Optional, degrades to no-op, experimental until measured (PRD R14).
+A haft-interop amendment (DRRs as first-class refs + skill-side evidence write-back) was
+added and **reversed the same day**. Decision: **how intent documents are authored is
+outside the loop's scope.** Tools like haft belong upstream — humans use them to produce
+PRDs and ADRs — and the loop consumes the resulting documents without integrating with the
+tool that made them. A haft DRR path/URL remains a perfectly valid `intent.ref` *as a
+document*, like any PRD or issue link; there is no haft-specific handling, no `.haft/`
+context convention, and no evidence write-back in scope. Rationale: keeps the product
+complete without optional dependencies, avoids coupling to a fast-moving single-maintainer
+tool, and preserves the clean division — governance of human decisions upstream,
+multi-model deliberation + gate in the loop.
 
 ## Action Items
 1. [ ] Add `intent` to `lf_plan` contract (ARCHITECTURE tool table updated in same commit)
