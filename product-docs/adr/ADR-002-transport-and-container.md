@@ -1,6 +1,6 @@
 # ADR-002: Dual transport — Streamable HTTP (primary) + stdio (kept), containerized
 
-**Status:** Accepted (pending M1 S2 evidence)
+**Status:** Accepted — S2 evidence green, Cline bar met (see Amendment 2026-07-11)
 **Date:** 2026-07-09 · **Deciders:** Adolfo
 
 ## Context
@@ -67,9 +67,14 @@ server in a `golang:1.25` container on `127.0.0.1:8484`):
 - **Claude Code by URL: PASS.** `claude mcp add --transport http … http://localhost:8484/mcp`
   → connected; a `claude -p` session discovered and called `lf_echo`, returning the exact
   structured JSON.
-- **Cline (the acceptance bar) and Cursor: PENDING** — require GUI verification by the
-  owner against the same URL. The S2 verdict, and action item 1, stay open until Cline
-  passes or the stdio-first partial retreat (above) is invoked.
+- **Cline (the acceptance bar): PASS** — owner-verified in GUI same day. Cline connected
+  by URL (`"type": "streamableHttp"` in `cline_mcp_settings.json`) and called `lf_echo`:
+  `{"echo":"hello from cline","server":"lf-spike-s2"}`. The historical problem child
+  works; **S2 verdict: PASS — Streamable HTTP confirmed as primary transport**, the
+  stdio-first partial retreat is not invoked (stdio still ships as the kept secondary).
+- **Cursor: untested** (non-bar; config staged in `~/.cursor/mcp.json`). Record the
+  result here when it happens; a Cursor failure would be a client bug to track, not a
+  transport-decision change.
 
 ## Consequences
 
@@ -81,6 +86,6 @@ server in a `golang:1.25` container on `127.0.0.1:8484`):
   HTTP behind a flag.
 
 ## Action Items
-1. [ ] S2 spike: echo tool over Streamable HTTP against all 3 agents (Cline = bar)
+1. [x] S2 spike: echo over Streamable HTTP — Claude Code PASS, Cline PASS (bar met), Cursor untested/non-bar (Amendment 2026-07-11)
 2. [ ] `GET /healthz`; skill checks before first submit
 3. [ ] Token middleware + refuse non-localhost bind without token

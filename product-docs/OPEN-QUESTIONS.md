@@ -7,9 +7,9 @@
 
 | Q | Status | Decision |
 |---|---|---|
-| Q1 (Go vs Cloudflare) | **OPEN — needs live test** | Cannot be decided from an armchair; Phase 1 day 1. Fallback path documented |
+| Q1 (Go vs Cloudflare) | **DECIDED (spike S1, 2026-07-11)** | Plain `net/http` FULL PASS on both providers, incl. authenticated completion through Cloudflare. No fallback needed — ADR-001 amendment |
 | Q2 (artifact home) | **DECIDED** | Engine volume canonical; agent materializes in-repo copy |
-| Q3 (Go MCP SDK) | **OPEN — needs live test** | Official SDK first; verify against all 3 agents in Phase 1 |
+| Q3 (Go MCP SDK) | **DECIDED (spike S2, 2026-07-11)** | Official SDK v1.6.1, Streamable HTTP: Claude Code + Cline (the bar) PASS by URL; needs Go ≥ 1.25 — ADR-002 amendment |
 | Q4 (jobs execution) | **DECIDED** | In-process goroutines + context cancellation; revisit only on evidence |
 | Q5 (coder-fusion default) | **DECIDED** | v1 default (ON) stands until the isolation ablation reports; no variants before it |
 | Q6 (server auth) | **DECIDED** | Bind 127.0.0.1 by default; optional static bearer token env var |

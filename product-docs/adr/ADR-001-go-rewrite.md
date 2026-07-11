@@ -1,6 +1,6 @@
 # ADR-001: Rewrite the engine in Go
 
-**Status:** Accepted (pending M1 spike evidence on Q1/Q3 — see Action Items)
+**Status:** Accepted — M1 spike evidence in: Q1 PASS, Q3 PASS (see Amendments)
 **Date:** 2026-07-09 · **Deciders:** Adolfo
 
 ## Context
@@ -70,6 +70,14 @@ authenticated completion. **Full PASS pending:** set `FEATHERLESS_API_KEY` /
 `max_tokens=16` completion per provider. On current evidence the utls / curl-shim
 fallbacks are unnecessary.
 
+**Finalized same day (keys added, `make spike-s1`): FULL PASS.** Authenticated
+completions succeeded on both providers — Featherless HTTP 200 `chat.completion`
+(`openai/gpt-oss-120b`) *through* Cloudflare (`cf-ray` present, 1.8s); Ollama Cloud
+HTTP 200 (`gpt-oss:120b`, 0.96s). **Q1 answered: no fallback needed** — v1's curl
+workaround does not carry into Go. Port note: gpt-oss returns empty `content` with the
+text in `message.reasoning` (v1 `run.py` has the same fallback chain
+content → reasoning → reasoning_content); the Go provider client must preserve it.
+
 ## Trade-off Analysis
 
 The deciding constraint is Goal 2 (15-minute adoption on machines we don't control). Only B
@@ -83,6 +91,6 @@ parity gates — we never bet the working system on the rewrite.
 - Revisit if: M1 spikes fail without acceptable fallback, or M3 parity proves unreachable.
 
 ## Action Items
-1. [ ] Spike S1 (Q1): `net/http` vs Featherless/Cloudflare — amend this ADR with result
-2. [ ] Spike S2 (Q3): Go MCP SDK vs Claude Code/Cline/Cursor — amend ADR-002 with result
-3. [ ] M0: prompt extraction (ADR-008) before any Go engine code
+1. [x] Spike S1 (Q1): `net/http` vs Featherless/Cloudflare — FULL PASS (Amendment 2026-07-11)
+2. [x] Spike S2 (Q3): Go MCP SDK vs Claude Code/Cline/Cursor — PASS, Cline bar met (ADR-002 Amendment 2026-07-11)
+3. [x] M0: prompt extraction (ADR-008) before any Go engine code — done, commit `4308387`

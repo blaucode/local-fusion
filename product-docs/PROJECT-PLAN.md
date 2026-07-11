@@ -59,18 +59,18 @@ v1 extraction script output (`make prompts-check`); ADR statuses set.
 **Exit gate:** written PASS/FAIL per spike in `adr/` amendments; on FAIL, fallback selected
 (curl shim / alt SDK / stdio-first) **before** M2 code.
 
-**M1 status (2026-07-11):** spike code in `spikes/` (own Go module — SDK dep enters the
-product `go.mod` only on adoption; note: SDK v1.6.1 needs Go ≥ 1.25).
+**M1 status (2026-07-11): GATE CLOSED — all three spikes PASS, no fallbacks invoked.**
+Spike code in `spikes/` (own Go module; finding: MCP SDK v1.6.1 needs **Go ≥ 1.25** —
+bump `GO_IMAGE` when adopting it at M2 start).
 - [x] **S3 kill-switch: PASS** — ADR-007 amendment; `spikes/s3-killswitch` green under
   `-race` (150ms budget kills a wedged 3-stage panel in 0.15s; 20-job cancellation storm,
   zero leaks).
-- [ ] **S1: partial PASS** — ADR-001 amendment; plain `net/http` passed the Cloudflare
-  edge (Featherless 401 JSON from origin, `cf-ray` present; Ollama isn't behind
-  Cloudflare). Full PASS = add `providers.env` keys and re-run `make spike-s1` (probe
-  auto-upgrades to a real completion).
-- [ ] **S2: protocol + Claude Code PASS** — ADR-002 amendment; `lf_echo` served from a
-  container, called by Claude Code by URL. Pending: **Cline (the bar)** + Cursor GUI
-  checks against `http://localhost:8484/mcp` (`make spike-s2` serves it).
+- [x] **S1: FULL PASS** — ADR-001 amendment; plain `net/http` completed authenticated
+  chat completions on both providers, Featherless HTTP 200 *through* Cloudflare
+  (`cf-ray` present). Q1 answered: no utls/curl-shim fallback needed.
+- [x] **S2: PASS, Cline bar met** — ADR-002 amendment; `lf_echo` over Streamable HTTP
+  from a container, called by URL from Claude Code (scripted) and Cline (owner-verified).
+  Streamable HTTP confirmed primary; Cursor untested (non-bar, config staged).
 
 ### M2 — Pure-Go shell + the quality gate (6–10 sessions) → **pilot starts here**
 *(Amended 2026-07-10, owner decision: the "Go shell, Python brain" proxy stage is dropped —
