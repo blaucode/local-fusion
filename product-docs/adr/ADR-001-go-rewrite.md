@@ -30,7 +30,8 @@ rewrites the hard part.
 Complexity Medium · Cost Medium (port effort) · Distribution Excellent · Concurrency Native
 **Pros:** one artifact, trivial container (distroless), goroutines/errgroup map directly to
 panel fan-out and unit/slot pools; no runtime deps for teammates.
-**Cons:** port risk (mitigated by parity gates + Python proxy in M2/M3); Go MCP SDK younger
+**Cons:** port risk (mitigated by deterministic parity gates, ADR-010; the Python-proxy
+mitigation was later dropped -- see Amendment); Go MCP SDK younger
 than Python's (spike S2); TLS fingerprinting unknown (spike S1).
 
 ### C: Hybrid (Go shell, Python engine as subprocess)
