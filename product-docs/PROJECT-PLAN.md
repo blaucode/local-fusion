@@ -99,11 +99,11 @@ ship M2 and stop — it alone retires v1's worst limitation.
 **Source & branching.** Trunk-based: short-lived branches → PR → squash-merge to `main`.
 No direct pushes to `main` once M2 lands.
 
-**No host toolchains (owner mandate, 2026-07-10).** All build/test/lint runs inside Docker
-via the Makefile (`RUN_GO`, `golang:1.23`); contributor host requirements are exactly
-docker + make + python3. CI runs the same make targets — "works locally, fails in CI" is
-structurally impossible. This also covers dev machines: nobody installs Go to work on
-local-fusion.
+**ALL commands and tools run in containers, always (owner mandate, 2026-07-10).** Go runs
+in `RUN_GO` (`golang:1.23`), scripts in `RUN_PY` (`python:3.12-slim`), the product ships as
+a Docker image; contributor host requirements are exactly **docker + make**. CI runs the
+same make targets — "works locally, fails in CI" is structurally impossible. Nobody installs
+Go, Python, or any other toolchain on a host to work on local-fusion.
 
 **Definition of Done (every PR):** code + tests (unit for pure logic, integration for
 tool surface); CI green; no prompt-file changes in the same PR as engine changes (prompt

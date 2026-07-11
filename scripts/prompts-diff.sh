@@ -14,13 +14,24 @@ V1_DIR="${V1_DIR:-../../vendo/local-fusion}"
   || { echo "❌ prompts/ differ from checksums.sha256 — prompt files were edited by hand?"; exit 1; }
 echo "layer 1 OK: prompts match committed checksums"
 
-# Layer 2 — re-extraction vs v1 (source of truth)
+# Layer 2 — re-extraction vs v1 (source of truth). Layer 1 already proved
+# prompts/ match their checksum manifest, so comparing the freshly-extracted
+# manifest against the committed one proves byte-identity of every .tmpl
+# (works in python:*-slim images — no diffutils needed).
 if [ -d "$V1_DIR/orchestrator/fusion" ]; then
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   python3 scripts/extract-prompts.py --v1 "$V1_DIR" --out "$tmp" >/dev/null
-  diff -ru prompts "$tmp" \
-    || { echo "❌ prompts/ differ from a fresh v1 extraction — v1 prompts changed, or extractor changed"; exit 1; }
+  python3 - "$tmp" <<'PYEOF'
+import sys
+a = open("prompts/checksums.sha256").read()
+b = open(sys.argv[1] + "/checksums.sha256").read()
+if a != b:
+    print("committed manifest:\n" + a)
+    print("fresh extraction:\n" + b)
+    sys.exit(1)
+PYEOF
+  [ $? -eq 0 ] || { echo "❌ prompts/ differ from a fresh v1 extraction — v1 prompts changed, or extractor changed"; exit 1; }
   echo "layer 2 OK: byte-identical to fresh v1 extraction"
 else
   echo "layer 2 skipped: v1 repo not found at $V1_DIR (set V1_DIR to enable)"

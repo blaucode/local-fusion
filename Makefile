@@ -9,14 +9,26 @@ PORT    := 8484
 VOLUME  := lf-data
 ENVFILE := providers.env
 
-# ─── containerized toolchain (rule: never install toolchains on the host) ────
-# All Go commands run inside $(GO_IMAGE); the only host requirements are
-# docker, make, and python3. A named volume caches modules/builds across runs.
+# ─── containerized toolchain (rule: ALL commands and tools run in containers) ─
+# Nothing executes on the host except docker and make themselves. Go runs in
+# $(GO_IMAGE), scripts run in $(PY_IMAGE). Named volumes cache Go modules/builds.
 GO_IMAGE    := golang:1.23
+PY_IMAGE    := python:3.12-slim
 GOCACHE_VOL := lf-gocache
 RUN_GO      := docker run --rm -v $(CURDIR):/src -w /src \
                -v $(GOCACHE_VOL):/root/.cache -v $(GOCACHE_VOL)-mod:/go/pkg/mod \
                -e GOFLAGS=-buildvcs=false $(GO_IMAGE)
+RUN_PY      := docker run --rm -v $(CURDIR):/src -w /src $(PY_IMAGE)
+
+# v1 reference checkout for the prompt-freeze layer-2 check; mounted read-only
+# into the container when present, skipped gracefully when not (e.g. CI).
+V1_DIR      ?= ../../vendo/local-fusion
+ifneq ($(wildcard $(V1_DIR)/orchestrator/fusion),)
+V1_MOUNT    := -v $(abspath $(V1_DIR)):/v1:ro -e V1_DIR=/v1
+else
+V1_MOUNT    := -e V1_DIR=/v1-not-mounted
+endif
+RUN_PY_V1   := docker run --rm -v $(CURDIR):/src -w /src $(V1_MOUNT) $(PY_IMAGE)
 
 # ─── colors & icons ──────────────────────────────────────────────────────────
 BOLD   := \033[1m
@@ -38,7 +50,7 @@ endef
 help: ## 📖 Show this help
 	@printf "\n$(BOLD)$(CYAN)  local-fusion v2$(RESET) $(DIM)— make targets$(RESET)\n\n"
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { printf "  $(CYAN)%-15s$(RESET) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@printf "\n$(DIM)  Toolchain runs in Docker ($(GO_IMAGE)) — host needs only docker, make, python3.$(RESET)\n"
+	@printf "\n$(DIM)  ALL commands run in containers ($(GO_IMAGE), $(PY_IMAGE)) — host needs only docker + make.$(RESET)\n"
 	@printf "$(DIM)  Docs: docs/ (users) · product-docs/ (implementers) · AGENTS.md (agents)$(RESET)\n\n"
 
 # ─── build & test (all inside the golang container) ─────────────────────────
@@ -97,16 +109,18 @@ replay: ## 📼 Deterministic parity: replay recorded v1 requests against the Go
 	$(call ok,"parity holds")
 
 prompts-check: ## 🔒 Verify prompts/*.tmpl are byte-identical to the v1 extraction (ADR-008)
-	@printf "$(CYAN)🔒 Checking prompt freeze...$(RESET)\n"
-	@if [ -x scripts/prompts-diff.sh ]; then \
-		./scripts/prompts-diff.sh && printf "$(GREEN)✅ prompts unchanged$(RESET)\n"; \
-	else \
-		printf "$(YELLOW)⏳ M0 pending — scripts/prompts-diff.sh not created yet (see PROJECT-PLAN M0)$(RESET)\n"; \
-	fi
+	@printf "$(CYAN)🔒 Checking prompt freeze (in $(PY_IMAGE))...$(RESET)\n"
+	@$(RUN_PY_V1) bash scripts/prompts-diff.sh
+	$(call ok,"prompts frozen")
+
+prompts-extract: ## 🧊 Re-run the verbatim extraction from v1 (only after a reviewed v1 prompt change)
+	@printf "$(CYAN)🧊 Extracting prompts from v1 (in $(PY_IMAGE))...$(RESET)\n"
+	@$(RUN_PY_V1) sh -c 'python3 scripts/extract-prompts.py --v1 "$$V1_DIR"'
+	$(call ok,"prompts/ regenerated — commit as a prompt-only change (ADR-008)")
 
 docs-check: ## 📚 Verify all markdown links resolve (docs/ + product-docs/)
-	@printf "$(CYAN)📚 Checking doc links...$(RESET)\n"
-	@python3 scripts/check-links.py
+	@printf "$(CYAN)📚 Checking doc links (in $(PY_IMAGE))...$(RESET)\n"
+	@$(RUN_PY) python3 scripts/check-links.py
 	$(call ok,"links OK")
 
 # ─── housekeeping ────────────────────────────────────────────────────────────
