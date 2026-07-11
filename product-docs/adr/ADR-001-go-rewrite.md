@@ -33,9 +33,23 @@ panel fan-out and unit/slot pools; no runtime deps for teammates.
 **Cons:** port risk (mitigated by parity gates + Python proxy in M2/M3); Go MCP SDK younger
 than Python's (spike S2); TLS fingerprinting unknown (spike S1).
 
-### C: Hybrid forever (Go shell, Python engine as subprocess)
+### C: Hybrid (Go shell, Python engine as subprocess)
 **Pros:** M2 exists anyway; minimal port. **Cons:** two runtimes to ship = the distribution
-problem unsolved; permanent IPC seam. Rejected as end-state, embraced as **migration stage**.
+problem unsolved; permanent IPC seam. Rejected as end-state; initially embraced as a
+**migration stage** -- then dropped entirely (see Amendment below).
+
+## Amendment (2026-07-10): the Python-proxy migration stage is dropped -- pure port
+
+Owner decision. Three reasons: (1) the containers-always mandate would put python3 + a v1
+checkout inside the v2 image, contradicting the one-clean-binary goal the rewrite exists
+for; (2) honest estimate: the proxy plumbing (exec boundary, error mapping, path
+translation) costs roughly the same sessions as porting the two small stages (judge ~320,
+review ~140 lines of Python) that the pilot's quality gate actually needs; (3) the
+record/replay harness (ADR-010) needs v1 **host-side only** -- the proxy would have been a
+second, throwaway integration of the same Python. Consequence: M2 ships pure Go (shell +
+judge + review); plan-solo ports first in M3; v1 keeps serving planning host-side until
+then. The only accepted cost: async *planning* arrives a few sessions later than the proxy
+would have delivered it.
 
 ## Trade-off Analysis
 

@@ -58,25 +58,32 @@ v1 extraction script output (`make prompts-check`); ADR statuses set.
 **Exit gate:** written PASS/FAIL per spike in `adr/` amendments; on FAIL, fallback selected
 (curl shim / alt SDK / stdio-first) **before** M2 code.
 
-### M2 — Go shell, Python brain (6–10 sessions) → **pilot starts here**
+### M2 — Pure-Go shell + the quality gate (6–10 sessions) → **pilot starts here**
+*(Amended 2026-07-10, owner decision: the "Go shell, Python brain" proxy stage is dropped —
+see ADR-001 amendment. Python never enters the v2 image; v1 keeps running host-side.)*
 `internal/mcp` (HTTP+stdio), `internal/jobs` (queue, budgets, retry ledger, persistence),
-`internal/store` (artifact volume), `lf_job`/`lf_cancel`; stages proxied to the v1 Python CLI
-(pinned checkout/submodule). Skill updated to submit/poll. Plus (external-review additions):
-the **record/replay harness** (Python `LF_RECORD` mode + Go replay — needed by M3 anyway,
-built here) and **baseline service observability** (structured logs with job/stage/provider
-fields; per-provider error/latency counters exposed in `lf_status` — enough to answer "why is
-this job slow" on a box others depend on). Ugly on purpose — ships the async fix and R1–R5
-without touching validated pipeline logic.
-**Exit gate:** full gated run (S1 scenario) on default agent timeouts; kill-switch test;
-red-test PASS impossible; **soak test** (20 concurrent fake-provider jobs under `-race`,
-0 leaks/races); **user docs v1** (quickstart, MCP setup per agent, config reference for
-everything shipped so far — R15) proven by **pilot engineer #1 onboarding ≤15 min using
-only `docs/`**, no author help.
+`internal/store` (artifact volume), `lf_job`/`lf_cancel` — plus the two smallest stages
+**ported to Go now**: `judge` (gate semantics per ADR-006, dual judge + test gate) and
+`review`, both parity-verified via record/replay. Until `plan` ports (M3), briefs enter as
+**data from the agent** (consistent with ADR-004's everything-as-data): authored via v1
+planning run host-side, or directly from the intent document. Skill updated to submit/poll.
+Also here: the **record/replay harness** (v1 `LF_RECORD` mode runs host-side in the v1
+checkout; Go replay lives in this repo) and **baseline service observability** (structured
+logs with job/stage/provider fields; per-provider error/latency counters in `lf_status`).
+**Exit gate:** full gated run (agent implements → tests → `lf_review` → `lf_judge` with test
+report) on default agent timeouts; kill-switch test; red-test PASS impossible; judge+review
+**record/replay parity green** (ADR-010); **soak test** (20 concurrent fake-provider jobs
+under `-race`, 0 leaks/races); **user docs v1** (quickstart, MCP setup per agent, config
+reference for everything shipped so far — R15) proven by **pilot engineer #1 onboarding
+≤15 min using only `docs/`**, no author help.
 
-### M3 — Port the brain, parity-gated (8–14 sessions)
-Order: judge → review → coder-solo → plan (risk-ascending; coder-fusion path last and only
-port, never improve — ADR-009). Each stage behind `engine: go|python`.
-**Exit gate per stage (deterministic — ADR-010):** record/replay request parity vs Python on
+### M3 — Port the planning brain, parity-gated (8–14 sessions)
+*(judge + review moved into M2 by the 2026-07-10 amendment.)* Order: **plan-solo**
+(decompose + haft — unblocks async planning, the original #1 pain) → **plan-full** (TL
+panel + synthesizer) → **coder-solo** → **coder-fusion path last and only port, never
+improve** (ADR-009). No engine switch needed — there is no Python in v2 to switch from;
+v1 host-side remains the fallback until each stage's parity is green.
+**Exit gate per stage (deterministic — ADR-010):** record/replay request parity vs v1 on
 the T25 reference + synthetic cases; byte-comparable artifacts on canned responses, including
 injected-failure degradation paths; metrics records equivalent. One live run per stage as
 **advisory smoke** (judge scores recorded, flagged if outside historical noise — never the
@@ -88,11 +95,13 @@ feedback in hand), provider `anthropic` client if not already exercised.
 **Exit gate:** PRD success-criteria checklist §6 leading indicators measurable.
 
 ### M5 — Decommission & handoff (2–3 sessions)
-Python proxy off, v1 marked legacy-for-experiments, docs updated, team default decision.
+v1 marked legacy-for-experiments (its host-side planning role ends when M3's plan parity is
+green), docs updated, team default decision.
 **Exit gate:** one month of pilot metrics reviewed; go/no-go on team-wide default written up.
 
 **Critical path:** M1 → M2. M3 can interleave with pilot feedback. If time collapses:
-ship M2 and stop — it alone retires v1's worst limitation.
+ship M2 and stop — the pure-Go quality gate alone is a complete, useful product; only
+async *planning* waits on M3.
 
 ## Engineering process
 

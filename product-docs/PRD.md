@@ -178,7 +178,8 @@ Q8 (32K budgets — data-first), Q13 (rubric schema — after pilot feedback).
 No hard external deadline; sequencing is risk-driven — see [PROJECT-PLAN.md](./PROJECT-PLAN.md).
 M1 spikes (Q1/Q3) gate everything: if either fails, fallbacks (curl shim / alternative SDK /
 stdio-first) are decided before M2 starts, not discovered mid-build. The team pilot starts on
-M2 (Go shell + Python brain) — value ships before the port finishes.
+M2 (pure-Go shell + the ported quality gate; the Python-proxy stage was dropped — ADR-001
+amendment 2026-07-10) — value ships before the full port finishes.
 
 ## Appendix — Scope decisions (evidence-backed, from v1 experiments)
 
