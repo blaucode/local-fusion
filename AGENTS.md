@@ -20,8 +20,9 @@ Planning is **complete and reviewed**; your job is execution against
    milestone** (lowest M whose exit gate isn't checked off) and its exit-gate checklist.
    That checklist is your task list. Also read: **Port contract** (what must not change),
    **Engineering process**, **Risk register**.
-3. [product-docs/PRD.md](./product-docs/PRD.md) — requirements R1–R13 with acceptance
-   criteria; the Appendix lists what is deliberately out of scope. Don't build P2 items.
+3. [product-docs/PRD.md](./product-docs/PRD.md) — requirements R1–R15 (R14 retired) with
+   acceptance criteria; the Appendix lists what is deliberately out of scope. Don't build
+   P2 items.
 4. [product-docs/ARCHITECTURE.md](./product-docs/ARCHITECTURE.md) — component layout, tool
    surface, job model, store schema, Go package layout (§8).
 5. [product-docs/adr/README.md](./product-docs/adr/README.md) — skim the index; **read the
