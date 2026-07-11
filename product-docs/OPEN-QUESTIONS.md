@@ -59,7 +59,7 @@ unit/slot pools. Revisit only if provider calls prove un-cancellable.
 
 v1 default is ON (user's call). The v1 data *suggests* the value sits in planning, but no
 experiment ever isolated the coder stage — the evidence is inconclusive, not negative.
-**Leaning:** don't decide by fiat; decide with the isolation ablation (roadmap Build #8):
+**Leaning:** don't decide by fiat; decide with the isolation ablation (the ablation (ADR-009)):
 same brief, coder-fusion arm vs single-coder arm, 2–3 pre-registered task pairs. If cf shows
 no delta → default OFF (big latency/cost win). If it shows a win → keep ON and *then*
 explore variants. Until the ablation runs, v1's default stands.

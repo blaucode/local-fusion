@@ -17,7 +17,7 @@ Statuses: Proposed → Accepted → Superseded. M1 spike results amend 001/002 w
 | [009](./ADR-009-coder-fusion-pending-ablation.md) | Coder-fusion: port verbatim, decide by ablation | Accepted (default undecided by design; amended: judge prerequisite) |
 | [010](./ADR-010-deterministic-parity.md) | Port parity via record/replay, judges off the critical path | Accepted (supersedes ±0.5 judge-score parity) |
 
-**2026-07-09 external review:** amendments to 002 (capacity policy, stdio-retreat honesty),
-003 (reconnect/idempotency mechanics), 009 (ablation instrument prerequisite); new 010; new
-[08-data-governance-and-threat-model.md](../08-data-governance-and-threat-model.md). Full
-disposition: [REVIEW-2026-07-09.md](../REVIEW-2026-07-09.md).
+**2026-07-09 external review** produced: amendments to 002 (capacity policy, stdio-retreat
+honesty), 003 (reconnect/idempotency mechanics), 009 (ablation instrument prerequisite);
+new 010; new [DATA-GOVERNANCE.md](../DATA-GOVERNANCE.md). Each amendment carries its
+rationale inline — the ADRs are the complete record.

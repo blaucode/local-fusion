@@ -101,7 +101,7 @@ epistemics are the hard part to retrofit.
    spent effort suppressing. It stays a cheap conformance check — nothing more.
 3. **Big-bang Go rewrite.** The risk isn't Go, it's rewriting *everything at once*. The
    pipeline's value is in prompts, config, and hard-won conventions — keep those as data
-   files, port the engine incrementally with parity gates (see 04-migration-plan.md).
+   files, port the engine incrementally with parity gates (see PROJECT-PLAN.md).
 4. **Manually chasing every new model.** The eval harness makes each benchmark cheap, but
    human-initiated model-hopping is time that doesn't improve the loop. Automate it (focus
    #5) and let the registry decide.

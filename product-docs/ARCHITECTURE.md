@@ -161,7 +161,7 @@ Notes:
   units vs Ollama slots) modeled as weighted semaphores — v1's concurrency doc becomes types.
 - v1's "curl because Cloudflare blocks urllib" concern: Go's `net/http` with a real TLS stack
   and proper User-Agent is expected to pass; verify against Featherless in week 1 (see
-  06-open-questions.md — fallback is a curl exec shim, ugly but proven).
+  OPEN-QUESTIONS.md — fallback is a curl exec shim, ugly but proven).
 
 ## 9. Container & config
 

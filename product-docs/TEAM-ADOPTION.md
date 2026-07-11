@@ -72,7 +72,7 @@ Each step has an exit: if the pilot engineer drops it, find out why before writi
 | 1. Quality gate | — (team v1) |
 | 2. Plan deliberation (haft → ADR → acceptance) | ≥2 engineers ask "can it help *before* coding?" AND gate adoption is sticky |
 | 3. Reviewer panel | Architects want conformance checks between apply and judge (keep it framed as impl-bugs-only) |
-| 4. Coder-fusion | Only if the isolation ablation (roadmap #8) shows a win. Never before |
+| 4. Coder-fusion | Only if the isolation ablation (ADR-009) shows a win. Never before |
 | 5. Lessons/memory, scheduled evals | Gate has ≥1 month of metrics.jsonl across the team to distill from |
 
 ## 6. Anti-over-engineering guardrails (write these on the wall)

@@ -1,7 +1,7 @@
 # PRD — local-fusion v2
 
 **Status:** Draft for review · **Owner:** Adolfo (PM/Arch) · **Date:** 2026-07-09
-**Companion docs:** [PROJECT-PLAN.md](./PROJECT-PLAN.md) · [adr/](./adr/) · deep design in [03-architecture.md](./03-architecture.md)
+**Companion docs:** [PROJECT-PLAN.md](./PROJECT-PLAN.md) · [adr/](./adr/) · deep design in [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ---
 
@@ -44,7 +44,7 @@ the quality gate stays a one-person research rig while the team ships ungated ag
 - **Multi-tenant/SaaS.** Single team, localhost-or-LAN deployment; a bearer token is the
   entire auth model (ADR-002).
 - **New pipeline stages.** Team v1 = quality gate; planning/review graduate on demand
-  (07-team-adoption.md §5). Prevents building features nobody asked for.
+  (TEAM-ADOPTION.md §5). Prevents building features nobody asked for.
 
 ## 4. Users & User Stories
 
@@ -71,6 +71,19 @@ the quality gate stays a one-person research rig while the team ships ungated ag
   server others are using.
 - As the operator, I want every verdict logged to metrics so adoption and quality claims stay
   evidence-based.
+
+## 4a. Core Scenarios
+
+- **S1 — Gated feature build (the main loop).** Agent gathers context → `lf_plan` (job) →
+  per task: `lf_coder_fusion` or agent implements → agent applies + tests → `lf_review` →
+  `lf_judge` with test report → PASS or one engine-tracked retry → next task.
+- **S2 — Overnight planning.** Three feature requests submitted as plan jobs before logging
+  off; three deliberated briefs (ADR + plan + acceptance) ready in the morning. Planning is
+  the proven-value stage — unattended *planning* pays; unattended *coding* is a non-goal.
+- **S3 — Continuous model bench** *(P2)*: scheduled discover/eval writes registry-update
+  proposal artifacts; human approves.
+- **S4 — Cross-project lessons** *(P2)*: recurring judge findings distilled into per-stack
+  lessons injected at plan time — ships only with a validation design (see Appendix).
 
 ## 5. Requirements
 
@@ -118,13 +131,13 @@ still using it in week 6 without prompting (a dropped pilot triggers a written w
 ### Pilot-widening preconditions (beyond software)
 
 Before the pilot goes past 1–2 engineers: the **data-governance sign-off** must exist
-([08-data-governance-and-threat-model.md](./08-data-governance-and-threat-model.md) §4
+([DATA-GOVERNANCE.md](./DATA-GOVERNANCE.md) §4
 checklist — provider retention terms pinned, profile-per-repo rule documented) and **R12
 cost visibility** must be live for any BYOK profile in use.
 
 ## 7. Open Questions
 
-Tracked with owners in [06-open-questions.md](./06-open-questions.md). Blocking for M1:
+Tracked with owners in [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md). Blocking for M1:
 **Q1** (Go `net/http` vs Cloudflare/Featherless — engineering, live spike) and **Q3** (Go MCP
 SDK Streamable-HTTP maturity across all 3 agents — engineering, live spike). Non-blocking:
 Q8 (32K budgets — data-first), Q13 (rubric schema — after pilot feedback).
@@ -135,3 +148,18 @@ No hard external deadline; sequencing is risk-driven — see [PROJECT-PLAN.md](.
 M1 spikes (Q1/Q3) gate everything: if either fails, fallbacks (curl shim / alternative SDK /
 stdio-first) are decided before M2 starts, not discovered mid-build. The team pilot starts on
 M2 (Go shell + Python brain) — value ships before the port finishes.
+
+## Appendix — Scope decisions (evidence-backed, from v1 experiments)
+
+**Keep, don't grow:** reviewer panel stays a conformance/implementation-bug check (v1
+ablation: 3/3 reviewers miss planning gaps — design-gap detection belongs to the plan stage);
+dual-judge gate unchanged except the test-report AND-gate (ADR-006, shipped in v1
+2026-07-08); one cross-agent skill file; solo/`no_fusion` fast path carried into every
+surface (effort scales to difficulty).
+
+**Deliberately deferred, with reasons:** coder-fusion variants (ADR-009 — ablation first);
+lessons/Reflexion loop (ships only with a lesson-on/off validation design, same standard as
+coder-fusion); web dashboard (no user need; artifacts + `lf_status` suffice); new providers
+beyond the two client types (ADR-008); multi-tenant/hosted (different product); parallel
+worktree execution (v2.1 — job state designed now to permit it: no shared mutable per-task
+state); chunked review/judge for large diffs (lifts the 32K/~37-file ceiling — R11).

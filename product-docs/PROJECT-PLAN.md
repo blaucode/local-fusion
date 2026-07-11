@@ -1,6 +1,6 @@
 # Project Plan & Engineering Process — local-fusion v2
 
-**Owner:** Adolfo · **Date:** 2026-07-09 · **Companions:** [PRD.md](./PRD.md) · [adr/](./adr/) · [04-migration-plan.md](./04-migration-plan.md)
+**Owner:** Adolfo · **Date:** 2026-07-09 · **Companions:** [PRD.md](./PRD.md) · [adr/](./adr/)
 
 Solo-builder plan with team checkpoints. Effort in focused evenings/weekends ("sessions",
 ~2–3h each); calendar estimates assume ~4 sessions/week. Every milestone has an exit gate —
@@ -8,11 +8,27 @@ Solo-builder plan with team checkpoints. Effort in focused evenings/weekends ("s
 
 ---
 
+## Port contract — what must NOT change
+
+The v1 Python engine (`vendo/local-fusion/orchestrator/fusion/`) is the reference
+implementation. Invariant across the entire migration:
+
+- `providers.yaml` schema (registry, pipelines, panels, roles) — a v1 file loads unmodified.
+- **Prompt wording for every stage** — extracted verbatim to `prompts/*.tmpl` in M0; consumed
+  as data by both engines; prompt changes are their own reviewed PRs (ADR-008).
+- Artifact formats: `manifest.json` schema, `plan.md`/`adr.md`/`acceptance.md`/`review.md`/
+  `verdict.md`, FILE-block emit format, `metrics.jsonl` records (v2 adds fields, never
+  changes existing ones — schema `build-2.0`).
+- The skill's loop shape: plan → per task (implement → test → review → judge).
+- Gate semantics: PASS ⇔ tests green AND avg ≥ threshold (ADR-006).
+
+---
+
 ## Milestones
 
 ### M0 — Repo & process bootstrap (2–3 sessions)
-Go module scaffold (layout per [03-architecture.md](./03-architecture.md) §8), CI (build,
-`go vet`, tests, prompt-diff check), ADRs 001–009 reviewed & statused, prompts extracted
+Go module scaffold (layout per [ARCHITECTURE.md](./ARCHITECTURE.md) §8), CI (build,
+`go vet`, tests, prompt-diff check), ADRs 001–010 reviewed & statused, prompts extracted
 **verbatim** from v1 `orchestrator/fusion/*.py` into `prompts/*.tmpl`.
 **Exit gate:** CI green on empty skeleton; prompt files byte-diffed against a v1 extraction
 script output; ADR statuses set.
@@ -91,6 +107,14 @@ issue body; weekly 15-min self-review (what closed, what's blocked, does the pla
 updating — the plan is a living doc); pilot feedback captured as issues labeled `pilot`,
 triaged before new feature work.
 
-**Risk register:** maintained in [04-migration-plan.md](./04-migration-plan.md) (unchanged) —
-top three: Cloudflare/Go TLS (M1 S1), Go MCP SDK maturity vs Cline (M1 S2), prompt drift
-during port (M0 prompt freeze + CI diff).
+## Risk register
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| Cloudflare blocks Go's HTTP client on Featherless | Low–medium | M1 S1 spike day 1; fallback: utls or curl-exec shim behind the provider interface |
+| Go MCP SDK gaps (Streamable HTTP vs Cline) | Medium | M1 S2 spike across all 3 agents; fallback stdio-first is a **named partial retreat** (ADR-002 amendment), not an equivalent |
+| Prompt drift during port | Medium | M0 verbatim extraction + CI byte-diff; prompts-as-data (ADR-008) |
+| Parity judged by noisy LLM scores | Eliminated | Deterministic record/replay parity (ADR-010) |
+| Job-runner concurrency bugs | Medium | `-race` everywhere + M2 soak-test exit gate |
+| Account-level provider contention (multi-client) | Low (pilot) | Capacity policy in ADR-002 amendment: shared key ⇒ shared server; per-dev servers ⇒ per-dev keys |
+| Container egress / data governance blocks sign-off | Medium | [DATA-GOVERNANCE.md](./DATA-GOVERNANCE.md) checklist is a pilot-widening precondition |
