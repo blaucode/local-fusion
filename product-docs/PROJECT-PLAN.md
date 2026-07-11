@@ -46,9 +46,10 @@ v1 extraction script output (`make prompts-check`); ADR statuses set.
   package docs; `.gitignore`; CI workflow (make-driven + mixed prompt/engine PR guard)
 - [x] Makefile toolchain fully containerized (`RUN_GO` → `golang:1.23`) — no host Go
 - [x] ADR statuses set (adr/README, 11 accepted)
-- [ ] **GATE OPEN: `make check` green** — could not be verified in the authoring session
-  (sandbox has no Docker); run `make check` on a Docker-equipped machine and tick this.
-  Until then M0 is *code-complete, not closed*.
+- [x] **`make check` green** (2026-07-11, host Docker 29.5.2, first run after image pull —
+  zero fixes needed): lint clean (`go vet` + `gofmt`), tests pass under `-race`, prompt
+  freeze OK on both layers (checksums + byte-identical fresh v1 re-extraction with
+  `V1_DIR` mounted), all doc links resolve. **M0 closed.**
 
 ### M1 — De-risking spikes (2–4 sessions) — *decides, not builds*
 - **S1 (Q1):** Go `net/http` chat completion against Featherless + Ollama Cloud.
