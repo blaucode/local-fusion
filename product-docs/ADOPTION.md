@@ -47,7 +47,7 @@ scheduled evals. They stay in your research profile and graduate individually (s
 
 ## 3. Model-agnostic mechanics (the one real design change)
 
-The v1 registry already abstracts providers; team edition needs one more step:
+The v1 registry already abstracts providers; v2 needs one more step:
 
 - **Provider types**: `openai-compatible` (covers Featherless, Ollama, OpenAI, most
   gateways) + `anthropic`. Two client implementations, everything is config.
@@ -124,13 +124,10 @@ Roadmap items 1–3 (async server, budgets, test-report-gated judging) are uncha
   doesn't need it.
 - Scheduled evals (roadmap #6) deprioritized to graduation stage 5.
 
-## 8. Open questions specific to team edition
+## 8. Rollout questions — now decided
 
-- **Q11 — Where does the shared server run?** Per-dev localhost container (zero ops, N
-  configs) vs one internal host (one config, needs the bearer-token story from Q6).
-  *Leaning: per-dev first; shared host when someone complains.*
-- **Q12 — Gate enforcement point?** Skill-level (agent won't proceed) vs CI-level (PR check
-  reads `verdict.md`). *Leaning: skill-level for v1; CI check is a natural stage-2 ask and a
-  great architect hook.*
-- **Q13 — Rubric ownership?** Architects own req/sec/maint weights + threshold per repo.
-  Needs a tiny `local-fusion.yaml` in-repo config — decide its schema before the pilot.
+Q11 (server placement), Q12 (gate enforcement point), and Q13 (rubric ownership) were
+settled in the [OPEN-QUESTIONS decision log](./OPEN-QUESTIONS.md): per-dev localhost first;
+skill-level enforcement for the pilot with a CI check as the stage-2 graduation; rubric
+config deliberately deferred until architect feedback exists (R9). See the log for
+rationale — this section no longer carries independent state.

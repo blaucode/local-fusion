@@ -25,7 +25,7 @@ throughout the migration.
 | [PRD.md](./product-docs/PRD.md) | Problem, goals, requirements (P0/P1/P2), success metrics, scope decisions |
 | [PROJECT-PLAN.md](./product-docs/PROJECT-PLAN.md) | Milestones M0–M5 with exit gates, engineering process, port contract, risk register |
 | [ARCHITECTURE.md](./product-docs/ARCHITECTURE.md) | Topology, tool surface, job model, store, Go layout, container |
-| [adr/](./product-docs/adr/README.md) | 10 architecture decision records (the *why* behind every load-bearing choice) |
+| [adr/](./product-docs/adr/README.md) | 11 architecture decision records (the *why* behind every load-bearing choice) |
 | [DATA-GOVERNANCE.md](./product-docs/DATA-GOVERNANCE.md) | Code egress per cost profile, threat model, sign-off checklist |
 | [OPEN-QUESTIONS.md](./product-docs/OPEN-QUESTIONS.md) | Decision log; Q1/Q3 are open **on purpose** — they're M1 spikes |
 | [ADOPTION.md](./product-docs/ADOPTION.md) | Pilot strategy, graduation ladder, anti-over-engineering guardrails |

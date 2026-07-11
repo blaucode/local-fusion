@@ -106,7 +106,7 @@ on red tests. v2:
 ```
 lf_judge(project_id, slug, task_id, changed_files, test_report, task_label)
   test_report: {command, exit_code, summary, failures[]}   ← produced by the agent
-  gate: PASS ⇔ exit_code == 0 AND avg ≥ 8.0
+  gate: PASS ⇔ exit_code == 0 AND avg ≥ threshold   (8.0 default; per-repo via R9 later)
 ```
 
 The dual-judge panel still scores req/sec/maint — but it *cannot* override the test runner.

@@ -5,6 +5,11 @@
 > missing is the *operational* half of the discipline: async execution, enforced termination
 > budgets, memory that feeds back, and automation. Those are v2.0.
 > Created: 2026-07-07
+>
+> **Historical snapshot -- read for rationale, not for tasks.** This assessment predates
+> the PRD/plan/ADRs, which supersede it wherever they differ (the doctrine now lives in
+> PHILOSOPHY.md, and section 6's hygiene items were completed 2026-07-08/09: the v1 doc-12
+> file exists, CLAUDE.md was addressed, the pilot kit moved). Nothing in here is a to-do.
 
 ---
 

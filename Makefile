@@ -89,8 +89,11 @@ replay: ## 📼 Deterministic parity: replay recorded v1 requests against the Go
 
 prompts-check: ## 🔒 Verify prompts/*.tmpl are byte-identical to the v1 extraction (ADR-008)
 	@printf "$(CYAN)🔒 Checking prompt freeze...$(RESET)\n"
-	@./scripts/prompts-diff.sh
-	$(call ok,"prompts unchanged")
+	@if [ -x scripts/prompts-diff.sh ]; then \
+		./scripts/prompts-diff.sh && printf "$(GREEN)✅ prompts unchanged$(RESET)\n"; \
+	else \
+		printf "$(YELLOW)⏳ M0 pending — scripts/prompts-diff.sh not created yet (see PROJECT-PLAN M0)$(RESET)\n"; \
+	fi
 
 docs-check: ## 📚 Verify all markdown links resolve (docs/ + product-docs/)
 	@printf "$(CYAN)📚 Checking doc links...$(RESET)\n"
