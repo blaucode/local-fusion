@@ -28,10 +28,14 @@ implementation. Invariant across the entire migration:
 
 ### M0 — Repo & process bootstrap (2–3 sessions)
 Go module scaffold (layout per [ARCHITECTURE.md](./ARCHITECTURE.md) §8), CI (build,
-`go vet`, tests, prompt-diff check), ADRs 001–010 reviewed & statused, prompts extracted
-**verbatim** from v1 `orchestrator/fusion/*.py` into `prompts/*.tmpl`.
-**Exit gate:** CI green on empty skeleton; prompt files byte-diffed against a v1 extraction
-script output; ADR statuses set.
+`go vet`, tests, prompt-diff check), ADRs 001–011 reviewed & statused, prompts extracted
+**verbatim** from v1 `orchestrator/fusion/*.py` into `prompts/*.tmpl`. The **Makefile**
+(already in repo root, colored self-documenting `make help`) is the single entry point —
+CI runs `make check`; every target the plan references (`build`, `test`, `soak`, `replay`,
+`prompts-check`, `docs-check`, `docker-build`, `docker-run`) lives there, and new tooling
+gets a target, not a README paragraph.
+**Exit gate:** CI green (`make check`) on the skeleton; prompt files byte-diffed against a
+v1 extraction script output (`make prompts-check`); ADR statuses set.
 
 ### M1 — De-risking spikes (2–4 sessions) — *decides, not builds*
 - **S1 (Q1):** Go `net/http` chat completion against Featherless + Ollama Cloud.
