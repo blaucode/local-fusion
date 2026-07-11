@@ -73,7 +73,7 @@ autonomy is a non-goal).
 - **Multi-tenant/SaaS.** Single team, localhost-or-LAN deployment; a bearer token is the
   entire auth model (ADR-002).
 - **New pipeline stages.** Team v1 = quality gate; planning/review graduate on demand
-  (TEAM-ADOPTION.md §5). Prevents building features nobody asked for.
+  (ADOPTION.md §5). Prevents building features nobody asked for.
 
 ## 4. Users & User Stories
 
@@ -136,6 +136,14 @@ autonomy is a non-goal).
   result and metrics record; BYOK profiles get a per-run cost line. The flat-rate "diversity
   is free" premise does NOT transfer to metered keys; a budget owner must see the bill per
   run before the pilot widens. (External review finding #5.)
+- **R14 haft interop (skill-side, optional, experimental)** — when the repo uses
+  [haft](https://github.com/m0n0x41d/haft) and its MCP is available: (a) a haft
+  DecisionRecord is a first-class `intent.ref` (ADR-011 amendment — it is human-bound by
+  construction); (b) the skill includes `.haft/` spec/decision artifacts in `lf_plan`
+  context; (c) after `lf_judge`, the skill attaches the verdict as evidence to the governing
+  decision (`haft_decision action=evidence`), feeding haft's trust loop. Degrades to no-op
+  without haft. Engine untouched (ADR-004). Measure-or-flag: experimental until a
+  spec-anchored-with-haft run demonstrably beats without.
 - **R9 Per-repo rubric config** (threshold, req/sec/maint weights) owned by architects —
   schema designed only after pilot feedback (Q13 discipline).
 - **R10 Stage-granular progress narration** in the skill ("task 2/4: TL panel 1/3").

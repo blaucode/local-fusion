@@ -28,5 +28,5 @@ throughout the migration.
 | [adr/](./product-docs/adr/README.md) | 10 architecture decision records (the *why* behind every load-bearing choice) |
 | [DATA-GOVERNANCE.md](./product-docs/DATA-GOVERNANCE.md) | Code egress per cost profile, threat model, sign-off checklist |
 | [OPEN-QUESTIONS.md](./product-docs/OPEN-QUESTIONS.md) | Decision log; Q1/Q3 are open **on purpose** — they're M1 spikes |
-| [TEAM-ADOPTION.md](./product-docs/TEAM-ADOPTION.md) | Pilot strategy, graduation ladder, anti-over-engineering guardrails |
+| [ADOPTION.md](./product-docs/ADOPTION.md) | Pilot strategy, graduation ladder, anti-over-engineering guardrails |
 | [BACKGROUND.md](./product-docs/BACKGROUND.md) | v1 assessment against loop-engineering principles; what carries over and why |

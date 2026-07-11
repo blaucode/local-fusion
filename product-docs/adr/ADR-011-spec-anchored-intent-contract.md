@@ -61,6 +61,17 @@ that boundary and makes everything auditable after the fact.
   and expiry are new small store features; teams must actually write charters for chores.
 - Revisit: intent-tier defaults per repo config (R9) once pilots show which tier dominates.
 
+## Amendment (2026-07-10): haft DecisionRecords as first-class intent refs
+
+[haft](https://github.com/m0n0x41d/haft)'s Transformer Mandate (agents frame and compare;
+only the human principal records the binding decision — `h-decide` is manual-only) is this
+ADR's principle implemented independently. Therefore a haft DRR reference
+(`intent.ref: "haft:dec-YYYYMMDD-..."`) satisfies the feature/fix tiers with the strongest
+available ownership evidence: invariants, claims, and a human binding act. Integration is
+**skill-side only** — the server never reads `.haft/` (ADR-004); the skill passes DRR
+content in context and, post-verdict, attaches gate evidence back to the decision via the
+haft MCP. Optional, degrades to no-op, experimental until measured (PRD R14).
+
 ## Action Items
 1. [ ] Add `intent` to `lf_plan` contract (ARCHITECTURE tool table updated in same commit)
 2. [ ] Charter artifact type + expiry in `internal/store` (M2)

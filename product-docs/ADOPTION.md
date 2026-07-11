@@ -1,9 +1,10 @@
-# local-fusion v2.0 — Team Edition Strategy
+# local-fusion v2.0 — Adoption & Distribution
 
-> Goal: a **pragmatic loop-engineering tool the team can adopt without you in the room.**
-> Design center shifts from "my research rig" to "a colleague installs it in 15 minutes,
-> gets value on the first feature, and can't hurt themselves with it."
-> Created: 2026-07-08
+> Goal: a **pragmatic loop-engineering tool anyone can adopt without the author in the
+> room** — a solo engineer with a coding agent, a team standardizing a quality gate, or
+> anyone in between. Design center: "someone installs it in 15 minutes, gets value on the
+> first feature, and can't hurt themselves with it."
+> Created: 2026-07-08 · Generalized beyond team-only: 2026-07-10
 
 ---
 
@@ -11,9 +12,14 @@
 
 | Decision | Choice | Why |
 |---|---|---|
-| Form factor | Evolve local-fusion v2 (Go server + per-repo skill) | Reuses everything; the team is a deployment target, not a second product |
-| Models | **Model-agnostic** | The team uses what it has (Claude, GPT, open-weight). The flat-rate open-model fusion becomes an optional *cost profile*, not the premise |
-| v1 team scope | **Quality gate only** | The most proven, least contested, easiest-to-adopt slice: judged verdict + test evidence + paper trail on every agent-built feature |
+| Form factor | Evolve local-fusion v2 (Go server + per-repo skill) | Reuses everything; new adopters are a deployment target, not a second product |
+| Models | **Model-agnostic** | Adopters use what they have (Claude, GPT, open-weight). The flat-rate open-model fusion becomes an optional *cost profile*, not the premise |
+| Entry scope | **Quality gate only** | The most proven, least contested, easiest-to-adopt slice: judged verdict + test evidence + paper trail on every agent-built feature |
+
+**Distribution channels:** the Docker image + one MCP config block (the server), the
+per-repo skill file committed like CI config (spreads via PR), and the open repo itself.
+A solo adopter needs only the first two; the team path below adds the pilot/architect
+motions on top — it is one adoption route, not the definition of the product.
 
 ## 2. What "the tool" is, concretely
 

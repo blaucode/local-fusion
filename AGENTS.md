@@ -27,7 +27,7 @@ Planning is **complete and reviewed**; your job is execution against
 5. [product-docs/adr/README.md](./product-docs/adr/README.md) — skim the index; **read the
    full ADR before touching anything it governs** (e.g. touching the job runner → ADR-003 +
    007; provider client → ADR-008; parity harness → ADR-010; `lf_plan` contract → ADR-011).
-6. Only when relevant: DATA-GOVERNANCE (security-adjacent work), TEAM-ADOPTION (pilot-facing
+6. Only when relevant: DATA-GOVERNANCE (security-adjacent work), ADOPTION (rollout/pilot
    work), OPEN-QUESTIONS (before "resolving" anything — Q1/Q3 are answered by **spikes**,
    never by assumption), BACKGROUND (history/rationale).
 
