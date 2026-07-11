@@ -52,7 +52,9 @@ this job slow" on a box others depend on). Ugly on purpose — ships the async f
 without touching validated pipeline logic.
 **Exit gate:** full gated run (S1 scenario) on default agent timeouts; kill-switch test;
 red-test PASS impossible; **soak test** (20 concurrent fake-provider jobs under `-race`,
-0 leaks/races); **pilot engineer #1 onboarded ≤15 min.**
+0 leaks/races); **user docs v1** (quickstart, MCP setup per agent, config reference for
+everything shipped so far — R15) proven by **pilot engineer #1 onboarding ≤15 min using
+only `docs/`**, no author help.
 
 ### M3 — Port the brain, parity-gated (8–14 sessions)
 Order: judge → review → coder-solo → plan (risk-ascending; coder-fusion path last and only
@@ -83,7 +85,17 @@ No direct pushes to `main` once M2 lands.
 **Definition of Done (every PR):** code + tests (unit for pure logic, integration for
 tool surface); CI green; no prompt-file changes in the same PR as engine changes (prompt
 changes are their own PR with rationale — they're the product); docs updated if behavior
-changed; self-review with the v1 `code-review` discipline.
+changed — for user-visible changes that means `docs/` (R15), not just product-docs;
+self-review with the v1 `code-review` discipline.
+
+**User documentation (R15).** User docs live in `docs/` (docs-as-code, same repo, versioned
+with the binary) — distinct from `product-docs/`, which is the build plan for implementers.
+Docs are written **with** the feature, never scheduled "after"; a user-visible feature
+without its docs does not pass DoD. Structure per R15: quickstart, how-it-works,
+benefits/evidence, configuration reference with annotated examples, MCP setup per agent,
+tool reference, troubleshooting/FAQ. The standing quality test: someone who didn't build it
+reaches a first gated run using only `docs/` — first enforced at the M2 exit gate,
+re-verified at M5.
 
 **Dogfooding rule.** From M2 exit onward, every local-fusion feature ≥1 session of effort is
 built *through* the gate itself (plan → implement → test report → judge). The tool is its own

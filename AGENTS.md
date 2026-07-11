@@ -55,7 +55,11 @@ Never port from memory — read the Python.
    tool contract. Amend, don't silently diverge.
 7. **Concurrency code runs under `-race`**, and the job runner requires the soak test
    (M2 exit gate) before it's considered done.
-8. **Definition of Done** is in PROJECT-PLAN — tests, CI green, docs updated, no mixed
+8. **User docs ship with the feature** (PRD R15). Anything user-visible you build or change
+   gets its `docs/` update in the same PR — quickstart, config reference, MCP setup, tool
+   reference live there. `product-docs/` is for implementers; `docs/` is for users; never
+   confuse the audiences. A feature without docs does not pass DoD.
+9. **Definition of Done** is in PROJECT-PLAN — tests, CI green, docs updated, no mixed
    prompt/engine PRs.
 
 ## Tools to use in your loop
