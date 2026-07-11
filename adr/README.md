@@ -14,4 +14,10 @@ Statuses: Proposed → Accepted → Superseded. M1 spike results amend 001/002 w
 | [006](./ADR-006-deterministic-test-gate.md) | Deterministic test gate outranks LLM judges | Accepted — shipped in v1 |
 | [007](./ADR-007-budgets-and-termination.md) | Engine-enforced budgets, retry ledger, no-progress exits | Accepted |
 | [008](./ADR-008-model-agnostic-providers-and-prompts.md) | Two provider clients; prompts/config frozen as data | Accepted |
-| [009](./ADR-009-coder-fusion-pending-ablation.md) | Coder-fusion: port verbatim, decide by ablation | Accepted (default undecided by design) |
+| [009](./ADR-009-coder-fusion-pending-ablation.md) | Coder-fusion: port verbatim, decide by ablation | Accepted (default undecided by design; amended: judge prerequisite) |
+| [010](./ADR-010-deterministic-parity.md) | Port parity via record/replay, judges off the critical path | Accepted (supersedes ±0.5 judge-score parity) |
+
+**2026-07-09 external review:** amendments to 002 (capacity policy, stdio-retreat honesty),
+003 (reconnect/idempotency mechanics), 009 (ablation instrument prerequisite); new 010; new
+[08-data-governance-and-threat-model.md](../08-data-governance-and-threat-model.md). Full
+disposition: [REVIEW-2026-07-09.md](../REVIEW-2026-07-09.md).

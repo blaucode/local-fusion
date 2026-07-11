@@ -38,6 +38,22 @@ The async job model is the product's core fix; it requires a server with its own
 HTTP. stdio costs little to keep (the MCP SDK provides both) and buys back-compat plus a
 fallback if S2 finds client bugs in Streamable HTTP (Cline is the historical problem child).
 
+## Amendments (2026-07-09, external review)
+
+**Provider-capacity policy (account-level contention).** The unit/slot pools model one
+server's view, but provider limits are per *account*. Policy: **shared key ⇒ shared server**
+(that server is the sole arbiter — global semaphore per provider account); **per-dev servers
+⇒ per-dev keys**. The unsupported configuration — multiple servers sharing one account key —
+is explicitly forbidden in setup docs; it silently breaks fairness and the concurrency math.
+Pilot exposure is low (solo-coder profile uses few units), but the rule is stated now.
+
+**stdio fallback is a partial retreat, not an equivalent.** If the S2 spike fails and we
+launch stdio-first, the async model keeps its *timeout* fix (submit returns instantly, polls
+are short) but **loses crash-resilience**: a stdio server dies with its agent, killing
+in-flight jobs. Persistent job state allows idempotent resubmit that skips completed steps,
+but that is new design work, not a free property. Any stdio-first decision must say this
+out loud and re-raise HTTP as the target, not the fallback-forever.
+
 ## Consequences
 
 - Easier: `docker run` adoption, shared team server later (per-dev first, Q11), agent

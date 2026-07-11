@@ -46,6 +46,17 @@ discarded quality mechanism.
   to "just improve it while porting" (CI prompt-freeze helps, ADR-008).
 - Revisit: immediately upon ablation results — amend this ADR with the data either way.
 
+## Amendment (2026-07-09, external review): instrument prerequisite
+
+The ablation measures *quality*, so judges are unavoidable here (unlike port parity —
+ADR-010). Prerequisite before running: **either** a second validated judge (discrimination
+eval ≥ separation threshold on the T25/T22 pair — note mistral-large-3, nemotron-3-super,
+minimax-m3 already failed; candidates must come from new evals) **or** a pre-registered
+single-judge design that compensates: `gemma4-31b` only, more task pairs (≥4), test-gate
+outcomes as the objective anchor, and a declared minimum effect size larger than measured
+single-judge noise. An ablation run on a silently-degraded panel is invalid by definition —
+the harness must fail loudly if a judge drops out.
+
 ## Action Items
 1. [ ] Pre-register the ablation spec (hypotheses, tasks, stopping criteria) before running
 2. [ ] Run on v1 Python (no need to wait for the port) — 2–3 task pairs

@@ -47,6 +47,18 @@ the boring, proven pattern; every alternative re-couples job survival to connect
   existing job, don't double-run).
 - Revisit: streaming progress as a P1 UX add-on (R10) once polling is solid.
 
+## Amendment (2026-07-09, external review): reconnect & idempotency mechanics
+
+- **Job identity:** `job_id` is derived-stable — keyed `(project_id, slug, stage, task_id)`.
+  Submitting while an identical job is `queued|running` returns the existing `job_id`
+  (idempotent submit); no double-run.
+- **Rediscovery:** a crashed/restarted agent calls `lf_status(project_id, slug)`, which lists
+  active and recent jobs with their `job_id`s — nothing needs to survive in agent memory.
+- **Same-key, different-context resubmit:** rejected with `conflict` while the original runs
+  (`lf_cancel` first); allowed after terminal state, recorded as a new attempt in the manifest.
+- **Crash-resilience caveat:** these guarantees assume the HTTP deployment (server outlives
+  client). Under the stdio fallback they degrade — see ADR-002 amendment.
+
 ## Action Items
 1. [ ] Job runner with persistence + idempotent submit (M2)
 2. [ ] Skill poll loop + stage-granular progress strings

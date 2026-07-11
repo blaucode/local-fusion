@@ -84,11 +84,15 @@ the quality gate stays a one-person research rig while the team ships ungated ag
 | R4 | **Engine-enforced termination**: per-job wall-clock/step budgets, judge-retry ledger (3rd attempt refused → escalate), no-progress detection | Kill-switch test: 5-min budget job provably stops ≤5 min with partial artifacts + `budget_exhausted` status |
 | R5 | **Filesystem-free server**: all artifacts returned as data + stored in engine volume; agent materializes in-repo copies; git ops move to skill with `git_state` attestation | Server runs in a container with no repo mount; `lf_plan` refuses without clean-tree attestation |
 | R6 | **Model-agnostic providers**: `openai-compatible` + `anthropic` client types; registry/pipelines schema preserved from v1 | One full gated run on non-Featherless models; providers.yaml from v1 loads unmodified |
-| R7 | **v1 parity for ported stages** (judge → review → coder-solo → plan), each behind an engine switch | Per-stage: dual-judge avg within ±0.5 of Python on T25 reference; artifacts structurally identical |
+| R7 | **v1 parity for ported stages** (judge → review → coder-solo → plan), each behind an engine switch | Per-stage, **deterministic** (ADR-010): provider requests semantically identical under record/replay; artifacts byte-comparable on canned responses; live dual-judge smoke advisory only |
 
 ### P1 — Nice to have (fast follows)
 
 - **R8 Config hot-reload** (`lf_reload`) — kills v1's restart-after-any-change footgun.
+- **R12 Per-run cost visibility** — token counts × configured price per model in every job
+  result and metrics record; BYOK profiles get a per-run cost line. The flat-rate "diversity
+  is free" premise does NOT transfer to metered keys; a budget owner must see the bill per
+  run before the pilot widens. (External review finding #5.)
 - **R9 Per-repo rubric config** (threshold, req/sec/maint weights) owned by architects —
   schema designed only after pilot feedback (Q13 discipline).
 - **R10 Stage-granular progress narration** in the skill ("task 2/4: TL panel 1/3").
@@ -110,6 +114,13 @@ median setup time ≤15 min.
 **Lagging (quarter):** gate adopted as definition-of-done in ≥1 team repo; ≥1 documented
 catch (gate FAIL that prevented a real defect reaching review); pilot retention — engineers
 still using it in week 6 without prompting (a dropped pilot triggers a written why).
+
+### Pilot-widening preconditions (beyond software)
+
+Before the pilot goes past 1–2 engineers: the **data-governance sign-off** must exist
+([08-data-governance-and-threat-model.md](./08-data-governance-and-threat-model.md) §4
+checklist — provider retention terms pinned, profile-per-repo rule documented) and **R12
+cost visibility** must be live for any BYOK profile in use.
 
 ## 7. Open Questions
 

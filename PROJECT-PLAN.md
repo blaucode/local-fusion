@@ -28,16 +28,24 @@ script output; ADR statuses set.
 ### M2 — Go shell, Python brain (6–10 sessions) → **pilot starts here**
 `internal/mcp` (HTTP+stdio), `internal/jobs` (queue, budgets, retry ledger, persistence),
 `internal/store` (artifact volume), `lf_job`/`lf_cancel`; stages proxied to the v1 Python CLI
-(pinned checkout/submodule). Skill updated to submit/poll. Ugly on purpose — ships the async
-fix and R1–R5 without touching validated pipeline logic.
+(pinned checkout/submodule). Skill updated to submit/poll. Plus (external-review additions):
+the **record/replay harness** (Python `LF_RECORD` mode + Go replay — needed by M3 anyway,
+built here) and **baseline service observability** (structured logs with job/stage/provider
+fields; per-provider error/latency counters exposed in `lf_status` — enough to answer "why is
+this job slow" on a box others depend on). Ugly on purpose — ships the async fix and R1–R5
+without touching validated pipeline logic.
 **Exit gate:** full gated run (S1 scenario) on default agent timeouts; kill-switch test;
-red-test PASS impossible; **pilot engineer #1 onboarded ≤15 min.**
+red-test PASS impossible; **soak test** (20 concurrent fake-provider jobs under `-race`,
+0 leaks/races); **pilot engineer #1 onboarded ≤15 min.**
 
 ### M3 — Port the brain, parity-gated (8–14 sessions)
 Order: judge → review → coder-solo → plan (risk-ascending; coder-fusion path last and only
 port, never improve — ADR-009). Each stage behind `engine: go|python`.
-**Exit gate per stage:** T25 reference + 1 live task; dual-judge avg within ±0.5 of Python;
-artifacts structurally identical; metrics records equivalent.
+**Exit gate per stage (deterministic — ADR-010):** record/replay request parity vs Python on
+the T25 reference + synthetic cases; byte-comparable artifacts on canned responses, including
+injected-failure degradation paths; metrics records equivalent. One live run per stage as
+**advisory smoke** (judge scores recorded, flagged if outside historical noise — never the
+gate; the judge bench is a documented SPOF and stays off the critical path).
 
 ### M4 — v2-only features (4–6 sessions)
 Hot reload (R8), stage-granular progress (R10), rubric config (R9 — only with pilot
@@ -72,8 +80,11 @@ Accepted → Superseded. Spike results amend ADRs 001/002 with evidence.
 **Testing strategy (summary).** Unit: pure engine logic (gate, budgets, parsers, resolvers) —
 no network. Contract: MCP tool schemas snapshot-tested (a signature change is a reviewable
 diff). Integration: fake-provider harness (canned model responses) for full-stage runs in CI.
-Parity: T25 reference harness, run manually per M3 stage (real model calls, operator-run).
-Live smoke: one real gated run before closing any milestone.
+Parity: **deterministic record/replay per ADR-010** (request parity + canned-response artifact
+parity), in CI. **Concurrency correctness:** all tests run under `go test -race`; the job
+runner additionally gets a soak test (sustained concurrent jobs, cancellation storms, budget
+expiries) as an M2 exit gate — it is the riskiest net-new code and gets proportional testing.
+Live smoke: one real gated run before closing any milestone (advisory judge scores recorded).
 
 **Cadence & tracking.** GitHub issues per milestone with the exit-gate checklist as the
 issue body; weekly 15-min self-review (what closed, what's blocked, does the plan need

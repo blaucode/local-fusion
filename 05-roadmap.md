@@ -43,6 +43,7 @@
 | New providers | Two flat-rate pools already saturate 4+3 concurrency; integration cost now buys nothing | Defer; registry stays provider-agnostic |
 | Multi-tenant / hosted | Different product | Out of scope |
 | Parallel worktree execution | Real loop-engineering pattern, but v1's tasks are dependency-ordered and agent applies serially; complexity high | Defer to v2.1 — design jobs so per-task parallelism can be added (no shared mutable state per task) |
+| Lessons/Reflexion loop shipped on faith | External review 2026-07-09: "the lesson appears" tests injection mechanics, not that lessons net-improve quality; a bad lesson can overfit | Same standard as coder-fusion: when built (graduation stage 5), it ships with a validation design (lesson-on vs lesson-off comparison), or flagged experimental |
 
 ## Sequencing note
 
