@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""Extract prompt strings VERBATIM from the v1 Python engine into prompts/*.tmpl.
+
+ADR-008: prompts are frozen data. This script is the definition of "verbatim":
+it walks each v1 stage module's AST and copies the exact source segment of every
+prompt-sized string literal (plain or f-string), in source order, with a header
+naming the enclosing function. The output is deterministic — byte-diffable.
+
+Usage:
+    python3 scripts/extract-prompts.py [--v1 PATH] [--out DIR]
+
+Defaults: --v1 ../../vendo/local-fusion  --out prompts/
+"""
+import argparse
+import ast
+import hashlib
+import os
+import sys
+
+MODULES = ["plan.py", "coder_fusion.py", "review.py", "judge.py", "artifacts.py"]
+FUSION_REL = os.path.join("orchestrator", "fusion")
+
+# A string is a prompt candidate if it is long enough to be instruction text (MIN_LEN),
+# or shorter (>= MIN_SHORT) but clearly prompt-shaped: starts with a role assignment
+# ("You are ...") or lives in a prompt-named function/variable.
+MIN_LEN = 120
+MIN_SHORT = 60
+PROMPT_NAME_HINTS = ("prompt", "instructions", "block")
+
+
+def enclosing_names(tree):
+    """Map each node to its enclosing function/assignment name."""
+    parents = {}
+    for parent in ast.walk(tree):
+        for child in ast.iter_child_nodes(parent):
+            parents[child] = parent
+    def name_for(node):
+        cur = node
+        while cur in parents:
+            cur = parents[cur]
+            if isinstance(cur, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                return cur.name
+            if isinstance(cur, ast.Assign) and cur.targets and isinstance(cur.targets[0], ast.Name):
+                return cur.targets[0].id
+        return "<module>"
+    return name_for
+
+
+def literal_length(node):
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return len(node.value)
+    if isinstance(node, ast.JoinedStr):  # f-string: count the constant parts
+        return sum(len(v.value) for v in node.values
+                   if isinstance(v, ast.Constant) and isinstance(v.value, str))
+    return 0
+
+
+def docstring_spans(tree):
+    """Spans of all docstrings — documentation, not prompts."""
+    spans = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
+            body = getattr(node, "body", [])
+            if body and isinstance(body[0], ast.Expr) and \
+               isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
+                d = body[0].value
+                spans.add((d.lineno, d.end_lineno, d.col_offset))
+    return spans
+
+
+def extract(module_path, src):
+    tree = ast.parse(src)
+    name_for = enclosing_names(tree)
+    skip = docstring_spans(tree)
+    blocks, seen_spans = [], set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Constant, ast.JoinedStr)):
+            continue
+        length = literal_length(node)
+        if length < MIN_SHORT:
+            continue
+        if length < MIN_LEN:
+            head = node.value if isinstance(node, ast.Constant) else next(
+                (v.value for v in node.values
+                 if isinstance(v, ast.Constant) and isinstance(v.value, str)), "")
+            owner = name_for(node).lower()
+            if not (head.lstrip().startswith("You are")
+                    or any(h in owner for h in PROMPT_NAME_HINTS)):
+                continue
+        span = (node.lineno, node.end_lineno, node.col_offset)
+        if span in skip or span in seen_spans:
+            continue
+        # skip strings nested inside an already-captured wider literal
+        if any(s[0] <= span[0] and span[1] <= s[1] and s != span for s in seen_spans):
+            continue
+        seg = ast.get_source_segment(src, node)
+        if seg is None:
+            continue
+        seen_spans.add(span)
+        blocks.append((node.lineno, name_for(node), seg))
+    blocks.sort(key=lambda b: b[0])
+    return blocks
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--v1", default=os.path.join("..", "..", "vendo", "local-fusion"))
+    ap.add_argument("--out", default="prompts")
+    args = ap.parse_args()
+
+    fusion_dir = os.path.join(args.v1, FUSION_REL)
+    if not os.path.isdir(fusion_dir):
+        sys.exit(f"error: v1 fusion dir not found: {fusion_dir} (pass --v1)")
+
+    os.makedirs(args.out, exist_ok=True)
+    checksums = []
+    for mod in MODULES:
+        path = os.path.join(fusion_dir, mod)
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        blocks = extract(path, src)
+        out_name = mod.replace(".py", ".tmpl")
+        out_path = os.path.join(args.out, out_name)
+        with open(out_path, "w", encoding="utf-8") as out:
+            out.write(f"### VERBATIM prompt extraction from v1 {FUSION_REL}/{mod}\n")
+            out.write("### Generated by scripts/extract-prompts.py — DO NOT EDIT BY HAND (ADR-008).\n")
+            out.write("### Segments are exact Python source (f-string syntax preserved).\n")
+            for i, (lineno, func, seg) in enumerate(blocks, 1):
+                out.write(f"\n### ─── block {i} · {mod}::{func} · v1 line {lineno} ───\n")
+                out.write(seg)
+                out.write("\n")
+        digest = hashlib.sha256(open(out_path, "rb").read()).hexdigest()
+        checksums.append(f"{digest}  {out_name}")
+        print(f"  {out_name}: {len(blocks)} blocks")
+
+    with open(os.path.join(args.out, "checksums.sha256"), "w") as fh:
+        fh.write("\n".join(checksums) + "\n")
+    print(f"wrote {args.out}/checksums.sha256")
+
+
+if __name__ == "__main__":
+    main()
