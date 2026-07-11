@@ -68,9 +68,9 @@ bump `GO_IMAGE` when adopting it at M2 start).
 - [x] **S1: FULL PASS** — ADR-001 amendment; plain `net/http` completed authenticated
   chat completions on both providers, Featherless HTTP 200 *through* Cloudflare
   (`cf-ray` present). Q1 answered: no utls/curl-shim fallback needed.
-- [x] **S2: PASS, Cline bar met** — ADR-002 amendment; `lf_echo` over Streamable HTTP
-  from a container, called by URL from Claude Code (scripted) and Cline (owner-verified).
-  Streamable HTTP confirmed primary; Cursor untested (non-bar, config staged).
+- [x] **S2: PASS, client matrix 3/3** — ADR-002 amendment; `lf_echo` over Streamable
+  HTTP from a container, called by URL from Claude Code (scripted), Cline (the bar,
+  owner-verified), and Cursor (owner-verified). Streamable HTTP confirmed primary.
 
 ### M2 — Pure-Go shell + the quality gate (6–10 sessions) → **pilot starts here**
 *(Amended 2026-07-10, owner decision: the "Go shell, Python brain" proxy stage is dropped —

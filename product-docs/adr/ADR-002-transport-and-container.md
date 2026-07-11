@@ -72,9 +72,8 @@ server in a `golang:1.25` container on `127.0.0.1:8484`):
   `{"echo":"hello from cline","server":"lf-spike-s2"}`. The historical problem child
   works; **S2 verdict: PASS — Streamable HTTP confirmed as primary transport**, the
   stdio-first partial retreat is not invoked (stdio still ships as the kept secondary).
-- **Cursor: untested** (non-bar; config staged in `~/.cursor/mcp.json`). Record the
-  result here when it happens; a Cursor failure would be a client bug to track, not a
-  transport-decision change.
+- **Cursor: PASS** — owner-verified same day:
+  `{"echo":"hello from cursor","server":"lf-spike-s2"}`. Client matrix 3/3 green.
 
 ## Consequences
 
@@ -86,6 +85,6 @@ server in a `golang:1.25` container on `127.0.0.1:8484`):
   HTTP behind a flag.
 
 ## Action Items
-1. [x] S2 spike: echo over Streamable HTTP — Claude Code PASS, Cline PASS (bar met), Cursor untested/non-bar (Amendment 2026-07-11)
+1. [x] S2 spike: echo over Streamable HTTP — Claude Code, Cline (bar), Cursor all PASS, 3/3 (Amendment 2026-07-11)
 2. [ ] `GET /healthz`; skill checks before first submit
 3. [ ] Token middleware + refuse non-localhost bind without token
