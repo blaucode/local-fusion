@@ -16,6 +16,7 @@ Statuses: Proposed → Accepted → Superseded. M1 spike results amend 001/002 w
 | [008](./ADR-008-model-agnostic-providers-and-prompts.md) | Two provider clients; prompts/config frozen as data | Accepted |
 | [009](./ADR-009-coder-fusion-pending-ablation.md) | Coder-fusion: port verbatim, decide by ablation | Accepted (default undecided by design; amended: judge prerequisite) |
 | [010](./ADR-010-deterministic-parity.md) | Port parity via record/replay, judges off the critical path | Accepted (supersedes ±0.5 judge-score parity) |
+| [011](./ADR-011-spec-anchored-intent-contract.md) | Spec-anchored intent contract: `lf_plan` refuses without human-owned intent (tiered: PRD / brief / charter) | Accepted |
 
 **2026-07-09 external review** produced: amendments to 002 (capacity policy, stdio-retreat
 honesty), 003 (reconnect/idempotency mechanics), 009 (ablation instrument prerequisite);

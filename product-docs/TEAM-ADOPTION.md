@@ -74,6 +74,20 @@ Each step has an exit: if the pilot engineer drops it, find out why before writi
 | 3. Reviewer panel | Architects want conformance checks between apply and judge (keep it framed as impl-bugs-only) |
 | 4. Coder-fusion | Only if the isolation ablation (ADR-009) shows a win. Never before |
 | 5. Lessons/memory, scheduled evals | Gate has ≥1 month of metrics.jsonl across the team to distill from |
+| 6. Discovery loop (drafts briefs/issues into a proposals inbox) | Charters exist and stage-2 planning is adopted; drafts are never runnable without human approval (ADR-011) |
+
+### Autonomy levels (orthogonal to the ladder — per loop, per repo)
+
+Borrowed from the loop-engineering rollout discipline (report-only → assisted → unattended):
+
+| Level | Meaning | local-fusion mapping |
+|---|---|---|
+| A1 — Report-only | Loop observes and proposes; touches nothing | Discovery loop drafting briefs; judge run as advisory on existing PRs |
+| A2 — Assisted | Loop acts, human approves each unit | **The team gate (default, and the ceiling for v2.0):** agent builds, human approves intent (ADR-011) and merges on evidence |
+| A3 — Unattended within a charter | Loop acts without per-item approval, bounded by a standing human-approved charter | Chore-class runs only (e.g. dep bumps); requires charters + budgets + the full hard-stop set. Post-v2.0 |
+
+Every loop starts at A1 in a new repo. Nothing skips a level. Feature work never reaches A3
+— that is the spec-anchored line ([PHILOSOPHY.md](./PHILOSOPHY.md) §2).
 
 ## 6. Anti-over-engineering guardrails (write these on the wall)
 

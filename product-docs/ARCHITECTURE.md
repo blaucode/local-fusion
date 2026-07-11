@@ -64,7 +64,7 @@ stay synchronous — they're 1–2 model calls.
 
 | Tool | Sync? | Notes |
 |---|---|---|
-| `lf_plan` | async → `job_id` | Args as v1 minus `project_dir` gitops; plus `budget` overrides |
+| `lf_plan` | async → `job_id` | Args as v1 minus `project_dir` gitops; plus `budget` overrides and **required `intent` attestation** `{tier, ref, approved_by, drafted_by}` (ADR-011) — refuses without it, chore tier validates charter id |
 | `lf_coder_fusion` | async → `job_id` | `solo=true` may run sync (single coder, ~1 call) |
 | `lf_job` | sync | `job_id` → `{status, progress, partial, result?, error?}` |
 | `lf_cancel` | sync | Cooperative cancel; artifacts written so far are preserved |

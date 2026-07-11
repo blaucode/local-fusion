@@ -21,6 +21,7 @@ throughout the migration.
 
 | Doc | One line |
 |---|---|
+| [PHILOSOPHY.md](./product-docs/PHILOSOPHY.md) | The doctrine: the spec-anchored loop, our place in the loop-engineering stack, proportional intent, the three debts |
 | [PRD.md](./product-docs/PRD.md) | Problem, goals, requirements (P0/P1/P2), success metrics, scope decisions |
 | [PROJECT-PLAN.md](./product-docs/PROJECT-PLAN.md) | Milestones M0–M5 with exit gates, engineering process, port contract, risk register |
 | [ARCHITECTURE.md](./product-docs/ARCHITECTURE.md) | Topology, tool surface, job model, store, Go layout, container |

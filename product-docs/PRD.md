@@ -7,14 +7,42 @@
 
 ## 1. Problem Statement
 
-Coding agents now write most feature code, but their output arrives as large diffs with no
-independent evidence of quality — engineers babysit the agent and architects reverse-engineer
-intent from code. local-fusion v1 proved the fix (an independent multi-model quality gate +
-deliberated planning, with measured +0.8 to +4.0 judge-score deltas on hard tasks) but is
-operationally unshippable to a team: minutes-long synchronous MCP calls that fight client
-timeouts, a Python setup that breaks on interpreter mismatches, host filesystem/git coupling,
-and rules that live in prompt conventions instead of the engine. The cost of not solving it:
-the quality gate stays a one-person research rig while the team ships ungated agent code.
+The leverage point in working with coding agents has moved from writing prompts to designing
+the loops that prompt them (Steinberger, Cherny, Osmani — June 2026). That shift created a
+new failure surface faster than it created tooling to manage it. Three problems compound:
+
+**Agent output arrives without evidence.** Agents now write most feature code, but it lands
+as large diffs with no independent proof of quality. Engineers babysit sessions; architects
+reverse-engineer intent from code and sign off on vibes. The loop-engineering literature is
+unanimous that verification is the piece practitioners obsess over and tooling skips — "a
+loop that writes code without a feedback mechanism is a machine for generating confident
+mistakes at scale" — yet the ecosystem keeps shipping chore loops (triage bots, PR
+babysitters, dependency sweepers) while the **verification loop** remains everyone's
+unbuilt homework. LLM-as-judge alone doesn't solve it: judges are noisy, gameable, and
+degrade silently; without deterministic anchors and calibration they add confidence, not
+trust.
+
+**Naive loops fail in known, expensive ways.** The production record of 2026 is explicit:
+loops that don't halt (the AutoGPT lesson relearned at scale), token bills that ended in
+per-engineer spending caps at large companies, reward hacking against checkable proxies, and
+two debts that grow with loop speed — *comprehension debt* (shipping code nobody read) and
+*cognitive surrender* (letting the loop decide what's worth building). Autonomy without
+spec-anchoring doesn't just miss edge cases; it erodes the team's ownership of its own
+system.
+
+**The proven fix is operationally unshippable.** local-fusion v1 built and measured the
+missing verification loop — deliberated planning plus a calibrated multi-model gate, worth
++0.8 to +4.0 judge points on hard, underspecified tasks (nulls on easy ones, kept in the
+record). But it is a one-person research rig: minutes-long synchronous MCP calls that fight
+client timeouts, a Python setup that breaks on interpreter mismatches, host filesystem/git
+coupling, and termination rules that live in prompt conventions instead of the engine.
+
+The cost of not solving this: the team adopts loop tooling anyway — agents are already
+writing the code — but gets the chore-loop half without the verification half, ungated and
+unanchored. v2's job is to make the measured quality loop deployable, enforceable, and
+**spec-anchored**: every run must trace to human-owned intent — a PRD, an approved brief, or
+a charter (see [PHILOSOPHY.md](./PHILOSOPHY.md); doctrine in full, including why 100%
+autonomy is a non-goal).
 
 ## 2. Goals
 
@@ -30,9 +58,10 @@ the quality gate stays a one-person research rig while the team ships ungated ag
 4. **Model-agnostic** — works with the team's existing models/keys (OpenAI-compatible +
    Anthropic), with the flat-rate open-weight setup as a cost profile, not a prerequisite.
    *(Measure: one pilot runs entirely on non-Featherless providers.)*
-5. **v1 quality parity** — ported stages score within noise (±0.5 dual-judge avg) of the
-   Python engine on the T25 reference before Python is switched off. *(Measure: parity gates
-   in PROJECT-PLAN M3.)*
+5. **v1 fidelity, deterministically proven** — ported stages emit semantically identical
+   provider requests and byte-comparable artifacts vs the Python engine (ADR-010) before
+   Python is switched off. *(Measure: record/replay parity gates in PROJECT-PLAN M3; live
+   judge scores advisory only.)*
 
 ## 3. Non-Goals
 
@@ -98,6 +127,7 @@ the quality gate stays a one-person research rig while the team ships ungated ag
 | R5 | **Filesystem-free server**: all artifacts returned as data + stored in engine volume; agent materializes in-repo copies; git ops move to skill with `git_state` attestation | Server runs in a container with no repo mount; `lf_plan` refuses without clean-tree attestation |
 | R6 | **Model-agnostic providers**: `openai-compatible` + `anthropic` client types; registry/pipelines schema preserved from v1 | One full gated run on non-Featherless models; providers.yaml from v1 loads unmodified |
 | R7 | **v1 parity for ported stages** (judge → review → coder-solo → plan), each behind an engine switch | Per-stage, **deterministic** (ADR-010): provider requests semantically identical under record/replay; artifacts byte-comparable on canned responses; live dual-judge smoke advisory only |
+| R13 | **Spec-anchored intent contract** (ADR-011): `lf_plan` requires an `intent` attestation — tier (feature/fix/chore), reference, human approver | Given no/incomplete intent, `lf_plan` refuses naming the three tiers; attestation recorded in request.md + manifest; chore tier validates charter id exists and is unexpired |
 
 ### P1 — Nice to have (fast follows)
 
