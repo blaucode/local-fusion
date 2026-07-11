@@ -9,6 +9,15 @@ PORT    := 8484
 VOLUME  := lf-data
 ENVFILE := providers.env
 
+# ─── containerized toolchain (rule: never install toolchains on the host) ────
+# All Go commands run inside $(GO_IMAGE); the only host requirements are
+# docker, make, and python3. A named volume caches modules/builds across runs.
+GO_IMAGE    := golang:1.23
+GOCACHE_VOL := lf-gocache
+RUN_GO      := docker run --rm -v $(CURDIR):/src -w /src \
+               -v $(GOCACHE_VOL):/root/.cache -v $(GOCACHE_VOL)-mod:/go/pkg/mod \
+               -e GOFLAGS=-buildvcs=false $(GO_IMAGE)
+
 # ─── colors & icons ──────────────────────────────────────────────────────────
 BOLD   := \033[1m
 CYAN   := \033[36m
@@ -29,31 +38,31 @@ endef
 help: ## 📖 Show this help
 	@printf "\n$(BOLD)$(CYAN)  local-fusion v2$(RESET) $(DIM)— make targets$(RESET)\n\n"
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { printf "  $(CYAN)%-15s$(RESET) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@printf "\n$(DIM)  Docs: docs/ (users) · product-docs/ (implementers) · AGENTS.md (agents)$(RESET)\n\n"
+	@printf "\n$(DIM)  Toolchain runs in Docker ($(GO_IMAGE)) — host needs only docker, make, python3.$(RESET)\n"
+	@printf "$(DIM)  Docs: docs/ (users) · product-docs/ (implementers) · AGENTS.md (agents)$(RESET)\n\n"
 
-# ─── build & test ────────────────────────────────────────────────────────────
-build: ## 🔨 Build the Go binary
-	@printf "$(CYAN)🔨 Building $(BINARY)...$(RESET)\n"
-	@go build -o bin/$(BINARY) ./cmd/$(BINARY)
-	$(call ok,"built bin/$(BINARY)")
+# ─── build & test (all inside the golang container) ─────────────────────────
+build: ## 🔨 Build the Go binary (in Docker)
+	@printf "$(CYAN)🔨 Building $(BINARY) in $(GO_IMAGE)...$(RESET)\n"
+	@$(RUN_GO) go build -o bin/$(BINARY) ./cmd/$(BINARY)
+	$(call ok,"built bin/$(BINARY) (linux)")
 
-test: ## 🧪 Run all tests (with -race)
-	@printf "$(CYAN)🧪 Running tests (-race)...$(RESET)\n"
-	@go test -race ./...
+test: ## 🧪 Run all tests with -race (in Docker)
+	@printf "$(CYAN)🧪 Running tests (-race) in $(GO_IMAGE)...$(RESET)\n"
+	@$(RUN_GO) go test -race ./...
 	$(call ok,"tests passed")
 
 race: test ## 🏁 Alias for test (all tests always run under -race)
 
-lint: ## 🔍 go vet + gofmt check
-	@printf "$(CYAN)🔍 Linting...$(RESET)\n"
-	@go vet ./...
-	@out=$$(gofmt -l . 2>/dev/null); if [ -n "$$out" ]; then \
-		printf "$(RED)❌ gofmt needed:$(RESET)\n$$out\n"; exit 1; fi
+lint: ## 🔍 go vet + gofmt check (in Docker)
+	@printf "$(CYAN)🔍 Linting in $(GO_IMAGE)...$(RESET)\n"
+	@$(RUN_GO) go vet ./...
+	@$(RUN_GO) sh -c 'out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi'
 	$(call ok,"lint clean")
 
 soak: ## 🌊 Job-runner soak test (M2 exit gate: concurrent jobs, cancellation storms)
 	@printf "$(CYAN)🌊 Soak test (this takes a while)...$(RESET)\n"
-	@go test -race -tags=soak -timeout 30m ./internal/jobs/...
+	@$(RUN_GO) go test -race -tags=soak -timeout 30m ./internal/jobs/...
 	$(call ok,"soak passed — no leaks, no races")
 
 check: lint test prompts-check docs-check ## ✅ Everything CI runs, locally
@@ -84,7 +93,7 @@ docker-logs: ## 📜 Tail server logs
 # ─── parity & guardrails ─────────────────────────────────────────────────────
 replay: ## 📼 Deterministic parity: replay recorded v1 requests against the Go engine (ADR-010)
 	@printf "$(CYAN)📼 Record/replay parity...$(RESET)\n"
-	@go test -tags=replay ./internal/engine/... -run TestParity
+	@$(RUN_GO) go test -tags=replay ./internal/engine/... -run TestParity
 	$(call ok,"parity holds")
 
 prompts-check: ## 🔒 Verify prompts/*.tmpl are byte-identical to the v1 extraction (ADR-008)

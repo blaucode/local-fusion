@@ -37,6 +37,19 @@ gets a target, not a README paragraph.
 **Exit gate:** CI green (`make check`) on the skeleton; prompt files byte-diffed against a
 v1 extraction script output (`make prompts-check`); ADR statuses set.
 
+**M0 status (2026-07-10):**
+- [x] Prompts extracted verbatim (21 blocks, 5 stages; commit `4308387`) — deterministic
+  (double-run diff), negative-tested (hand-edit caught), two-layer freeze check
+  (`make prompts-check`: checksums always, byte-diff vs v1 when `V1_DIR` present)
+- [x] Go scaffold written: `go.mod`, `cmd/local-fusion` (version/serve stub),
+  `internal/{version,mcp,jobs,store,engine,engine/providers,sched}` with ADR-annotated
+  package docs; `.gitignore`; CI workflow (make-driven + mixed prompt/engine PR guard)
+- [x] Makefile toolchain fully containerized (`RUN_GO` → `golang:1.23`) — no host Go
+- [x] ADR statuses set (adr/README, 11 accepted)
+- [ ] **GATE OPEN: `make check` green** — could not be verified in the authoring session
+  (sandbox has no Docker); run `make check` on a Docker-equipped machine and tick this.
+  Until then M0 is *code-complete, not closed*.
+
 ### M1 — De-risking spikes (2–4 sessions) — *decides, not builds*
 - **S1 (Q1):** Go `net/http` chat completion against Featherless + Ollama Cloud.
 - **S2 (Q3):** official Go MCP SDK, Streamable HTTP, `lf_echo`; connect Claude Code, Cline,
@@ -85,6 +98,12 @@ ship M2 and stop — it alone retires v1's worst limitation.
 
 **Source & branching.** Trunk-based: short-lived branches → PR → squash-merge to `main`.
 No direct pushes to `main` once M2 lands.
+
+**No host toolchains (owner mandate, 2026-07-10).** All build/test/lint runs inside Docker
+via the Makefile (`RUN_GO`, `golang:1.23`); contributor host requirements are exactly
+docker + make + python3. CI runs the same make targets — "works locally, fails in CI" is
+structurally impossible. This also covers dev machines: nobody installs Go to work on
+local-fusion.
 
 **Definition of Done (every PR):** code + tests (unit for pure logic, integration for
 tool surface); CI green; no prompt-file changes in the same PR as engine changes (prompt

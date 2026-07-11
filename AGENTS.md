@@ -62,6 +62,11 @@ Never port from memory — read the Python.
    confuse the audiences. A feature without docs does not pass DoD.
 9. **Definition of Done** is in PROJECT-PLAN — tests, CI green, docs updated, no mixed
    prompt/engine PRs.
+10. **Never install toolchains on the host** (owner mandate, 2026-07-10). All Go commands
+   run inside Docker via the Makefile (`RUN_GO`, image `golang:1.23`). Host requirements
+   are exactly: docker, make, python3. If a task seems to need `apt install` / `brew
+   install` / a language runtime on the host, stop and route it through a container or a
+   make target instead.
 
 ## Tools to use in your loop
 

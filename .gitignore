@@ -1,0 +1,4 @@
+bin/
+providers.env
+*.env
+!providers.env.example

@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Everything runs through make; the Go toolchain lives in Docker
+      # (repo rule: no host toolchains). Runners provide docker, make, python3.
+      - name: Lint (go vet + gofmt, in container)
+        run: make lint
+
+      - name: Tests (-race, in container)
+        run: make test
+
+      - name: Prompt freeze (layer 1 — checksums; layer 2 needs the v1 checkout, local-only)
+        run: make prompts-check
+
+      - name: Doc links
+        run: make docs-check
+
+  prompt-engine-separation:
+    # ADR-008: prompt changes are their own PR, never mixed with engine changes.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refuse mixed prompt + engine PRs
+        run: |
+          base="origin/${{ github.base_ref }}"
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          changed=$(git diff --name-only "$base"...HEAD)
+          echo "$changed"
+          prompts=$(echo "$changed" | grep -c '^prompts/' || true)
+          engine=$(echo "$changed" | grep -cE '^(cmd|internal)/' || true)
+          if [ "$prompts" -gt 0 ] && [ "$engine" -gt 0 ]; then
+            echo "::error::PR touches both prompts/ and engine code (cmd|internal). ADR-008: split into separate PRs."
+            exit 1
+          fi
+          echo "OK: prompts and engine not mixed"
