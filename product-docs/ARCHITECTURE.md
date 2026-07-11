@@ -83,7 +83,6 @@ in the artifact store — an agent that crashes can reconnect and poll.
 The skill's "this takes minutes, don't retry" warnings become a simple poll loop:
 submit → poll `lf_job` every 30–60s → proceed. MCP timeouts become irrelevant.
 
-
 ## 4. Budgets, termination, no-progress (engine-enforced)
 
 Per job, with config defaults and per-call overrides:
