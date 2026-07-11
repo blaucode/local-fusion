@@ -75,6 +75,13 @@ server in a `golang:1.25` container on `127.0.0.1:8484`):
 - **Cursor: PASS** — owner-verified same day:
   `{"echo":"hello from cursor","server":"lf-spike-s2"}`. Client matrix 3/3 green.
 
+**M2 implementation note (2026-07-11):** in-container the process must bind `0.0.0.0`, so
+the "refuse non-localhost bind without token" rule gets an explicit override flag
+(`serve --insecure-no-token`, baked into the image CMD only); the loopback-only guarantee
+there is docker's published port (`make docker-run` publishes `127.0.0.1:8484`). Host and
+stdio deployments keep the refusal default; the token check is always enforced when
+`LF_AUTH_TOKEN` is set.
+
 ## Consequences
 
 - Easier: `docker run` adoption, shared team server later (per-dev first, Q11), agent

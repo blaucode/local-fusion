@@ -12,7 +12,8 @@ ENVFILE := providers.env
 # ─── containerized toolchain (rule: ALL commands and tools run in containers) ─
 # Nothing executes on the host except docker and make themselves. Go runs in
 # $(GO_IMAGE), scripts run in $(PY_IMAGE). Named volumes cache Go modules/builds.
-GO_IMAGE    := golang:1.23
+# Go 1.25: required by the official MCP SDK v1.6.1 (ADR-002 amendment 2026-07-11).
+GO_IMAGE    := golang:1.25
 PY_IMAGE    := python:3.12-slim
 GOCACHE_VOL := lf-gocache
 RUN_GO      := docker run --rm -v $(CURDIR):/src -w /src \
@@ -123,11 +124,11 @@ docs-check: ## 📚 Verify all markdown links resolve (docs/ + product-docs/)
 	@$(RUN_PY) python3 scripts/check-links.py
 	$(call ok,"links OK")
 
-# ─── M1 spikes (own module in spikes/; SDK needs Go >= 1.25) ─────────────────
-SPIKE_GO_IMAGE := golang:1.25
+# ─── M1 spikes (own module in spikes/; kept as evidence) ─────────────────────
 RUN_GO_SPIKE   := docker run --rm -v $(CURDIR):/src -w /src/spikes \
                   -v $(GOCACHE_VOL):/root/.cache -v $(GOCACHE_VOL)-mod:/go/pkg/mod \
                   -e GOFLAGS=-buildvcs=false
+SPIKE_GO_IMAGE := $(GO_IMAGE)
 
 spike-s1: ## 🕵️ S1: net/http vs Featherless/Ollama (uses providers.env keys when present)
 	@if [ -f $(ENVFILE) ]; then \
