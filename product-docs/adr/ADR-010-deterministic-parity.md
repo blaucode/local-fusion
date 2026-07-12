@@ -53,8 +53,21 @@ flow) and nothing it can't (model behavior).
 - Revisit: if request semantics legitimately diverge (e.g. Anthropic client), parity is
   defined per provider-client with shared canonical form.
 
+## Amendment (2026-07-12): M2 judge+review parity GREEN vs real v1 recording
+
+Owner approved the `LF_RECORD` hook in v1 `fusion/common.py::call_model` (the one
+sanctioned v1 change — "it helps building a good v2"). `scripts/record-v1.py` seeds the
+reference task and records a live v1 review+judge round (5 calls: 3 reviewers + 2
+judges, owner's production registry). `make replay` then proves, offline and
+deterministically: **request parity** — the Go engine issues the same calls in the same
+order with byte-identical messages, models, `max_tokens`, timeouts; **artifact parity**
+— from v1's recorded responses the Go engine writes byte-identical `review.md`,
+`verdict.md`, `manifest.json`. Negative-tested (tampered fixture fails loudly). No
+canonicalization rules were needed for these stages — parity held on raw bytes. The
+same harness gates every M3 stage port as it lands.
+
 ## Action Items
-1. [ ] M2: recording mode in Python v1 (`LF_RECORD=dir`) + replay harness in Go CI
+1. [x] M2: recording mode in Python v1 (`LF_RECORD` file) + replay harness in Go (`make replay`) — green 2026-07-12, judge+review
 2. [ ] Amend PROJECT-PLAN M3 exit gates + PRD R7 (done in same commit)
 3. [ ] ADR-009 gains explicit prerequisite: second validated judge (or pre-registered
    single-judge + test-anchor design) before the ablation runs

@@ -1,0 +1,210 @@
+# local-fusion provider configuration
+# API keys: config/providers.env (gitignored)
+
+providers:
+  featherless:
+    enabled: true
+    plan:
+      name: premium                     # free | premium | scale
+      billing: flat_rate                # no session/weekly caps
+      features: [deepseek, kimi, glm, unlimited_size]
+    base_url: https://api.featherless.ai/v1
+    env_key: FEATHERLESS_API_KEY
+    capacity:
+      model: units                      # concurrency measured in units
+      total: 4                          # concurrent connections on this plan
+      context_window: 32768
+
+  ollama:
+    enabled: true
+    plan:
+      name: pro                         # free | pro | max
+      billing: session+weekly           # resets every 5h / 7 days
+      features: [cloud_models, private_models]
+    base_url: https://ollama.com/v1
+    env_key: OLLAMA_API_KEY
+    capacity:
+      model: slots                      # concurrency measured in model slots
+      total: 3                          # concurrent models on pro plan
+
+# Model registry
+# scores: benchmark averages per role (populated by `local-fusion eval`)
+# evaluated_on: task IDs used to generate the score
+models:
+  deepseek-v4-pro:
+    provider: featherless
+    id: deepseek-ai/DeepSeek-V4-Pro
+    units: 4
+    roles: [judge, synthesizer]
+    scores:
+      judge: 9.5
+    evaluated_on: [T21, T22, T25]
+    last_evaluated: "2026-06-30"
+
+  qwq-32b:
+    provider: featherless
+    id: Qwen/QwQ-32B
+    units: 2
+    roles: [judge]
+    scores:
+      judge: 9.8
+    evaluated_on: [T21, T22, T25]
+    last_evaluated: "2026-06-30"
+    notes: benched off active judge panel 2026-07-06 (flaky — capacity_exhausted / bad_request); kept for reference
+
+  gemma4-31b:
+    provider: ollama
+    id: gemma4:31b-cloud
+    slots: 1
+    roles: [judge]                    # validated judge; candidate for tl/coder/synthesizer (256K ctx) pending eval
+    scores:
+      judge: 9.33
+    judge_separation: 3.11            # discrimination: T25 haft-fusion 9.33 vs T22 solo 6.22 (sep 3.11)
+    evaluated_on: [T25, T22]
+    last_evaluated: "2026-07-06"
+    notes: replaced qwq-32b as 2nd judge; Ollama (frees Featherless units), reliable, Google lineage
+
+  glm-5.2:
+    provider: featherless
+    id: zai-org/GLM-5.2
+    units: 4
+    roles: [judge]
+    scores:
+      judge: 9.0
+    evaluated_on: [T18]
+    last_evaluated: "2026-06-01"
+    notes: run alone (4 units); prompt must say "scores 1-10" explicitly
+
+  gpt-oss-120b-fl:
+    provider: featherless
+    id: openai/gpt-oss-120b
+    units: 2
+    roles: [coder, tl, reviewer]
+    scores:
+      coder: 9.5
+    evaluated_on: [T16, T17, T18, T19, T20, T21, T22, T25]
+    last_evaluated: "2026-06-30"
+
+  gpt-oss-120b-ol:
+    provider: ollama
+    id: gpt-oss:120b
+    slots: 1
+    roles: [coder, tl, reviewer]
+    scores:
+      tl: 8.8
+    evaluated_on: [T19, T20, T21, T22, T25]
+    last_evaluated: "2026-06-30"
+
+  minimax-m3:
+    provider: ollama
+    id: minimax-m3
+    slots: 1
+    roles: [tl, reviewer]
+    scores:
+      tl: 8.4
+    evaluated_on: [T19, T20, T25]
+    last_evaluated: "2026-06-30"
+
+  devstral-2:
+    provider: ollama
+    id: devstral-2:123b
+    slots: 1
+    roles: [tl, coder]
+    scores:
+      tl: 8.2
+    evaluated_on: [T19, T20, T25]
+    last_evaluated: "2026-06-30"
+    notes: 123B, tool-use focused
+
+  deepseek-v4-flash:
+    provider: ollama
+    id: deepseek-v4-flash
+    slots: 1
+    roles: [reviewer, tl]
+    evaluated_on: []
+    last_evaluated: null
+
+  glm-5.1:
+    provider: ollama
+    id: glm-5.1
+    slots: 1
+    roles: [tl, reviewer]
+    evaluated_on: []
+    last_evaluated: null
+
+# Pipeline definitions
+# Role queries: resolved at runtime by selecting models matching role + provider + min_score
+# Hardcoded lists are still supported for explicit control (e.g. judges: [deepseek-v4-pro, qwq-32b])
+pipelines:
+  default:
+    tl_panel:
+      role: tl
+      providers: [ollama]
+      n: 3
+      strategy: diverse                 # pick models with different training lineages
+      min_score: 8.0                    # skip unscored or low-scoring models
+      parallel: true
+    synthesizer:
+      models: [deepseek-v4-pro]
+      parallel: false
+    coder:
+      models: [gpt-oss-120b-fl]
+      parallel: false
+    coder_fusion:                         # two coders compete, evaluator picks base, lead grafts best-of-both
+      coder_a: gpt-oss-120b-fl            # Featherless — validated coder (9.5)
+      coder_b: devstral-2                 # Ollama — different lineage → real diversity; runs parallel to A
+      evaluator: gpt-oss-120b-ol          # Ollama — frees Featherless units for the lead
+      lead: deepseek-v4-pro               # Featherless — synthesizer role, merges base + grafts
+    reviewer_panel:
+      role: tl
+      providers: [ollama]
+      n: 3
+      min_score: 8.0
+      parallel: true
+    judges:
+      models: [deepseek-v4-pro, gemma4-31b]
+      parallel: true                    # deepseek=Featherless, gemma=Ollama → different pools, run concurrently
+
+  haft_only:                            # fallback when fusion slots unavailable
+    tl_panel:
+      models: [gpt-oss-120b-ol]
+      parallel: false
+    coder:
+      models: [gpt-oss-120b-fl]
+      parallel: false
+    judges:
+      models: [deepseek-v4-pro, gemma4-31b]
+      parallel: true
+
+# Eval config — tasks used for benchmarking new models
+eval:
+  benchmark_tasks: [T25, T22]           # strongest discriminators in experiment series
+  default_task: T25
+  default_arm: haft-fusion              # known-good implementation to judge against
+  judge_ground_truth:                   # expected score range for sanity check
+    min: 8.0
+    max: 10.0
+  # Discrimination + calibration benchmark: a real judge must score KNOWN-GOOD
+  # code high AND KNOWN-BAD code low. Ground-truth numbers are dual-judge averages
+  # from the experiment series (T25 haft-fusion PASS, T22 solo FAIL).
+  judge_benchmark:
+    good: { task: T25, arm: haft-fusion, expected: 9.84 }
+    bad:  { task: T22, arm: solo,        expected: 6.0 }
+    samples: 3               # judge each arm this many times
+    min_separation: 3.0      # good_mean - bad_mean must be >= this
+    max_calibration_error: 1.5   # |mean - expected| must be <= this for BOTH arms
+    max_stdev: 1.0           # warn if a judge's per-arm spread exceeds this
+  # Coder eval: run candidate coder on a real task, score its output with the judge
+  # panel, compare against the incumbent coder. PASS = viable; comparison label = better?
+  coder_benchmark:
+    task: T21                 # spec comes from run.py TASKS[task]["spec"]
+    baseline: gpt-oss-120b-ol # incumbent coder to compare against
+    min_score: 8.0            # candidate PASS bar (judge-panel mean)
+  # Lead eval: two coders produce solutions, evaluator picks base+grafts, candidate lead
+  # merges. Also stresses big-context handling (Featherless caps at 32K).
+  lead_benchmark:
+    task: T21
+    baseline: deepseek-v4-pro # current lead/synthesizer to compare against
+    min_score: 8.0
+    coder_a: gpt-oss-120b-ol  # generates solution A to merge
+    coder_b: devstral-2       # generates solution B to merge

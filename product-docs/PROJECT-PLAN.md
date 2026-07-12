@@ -103,8 +103,11 @@ reference for everything shipped so far — R15) proven by **pilot engineer #1 o
   0 leaks / 0 races.
 - [x] **Kill-switch test** — runner-level under `-race` (budget kills wedged panel;
   budget kill cannot launder into done); applies to async stages when they land (M3).
-- [ ] **Record/replay parity vs real v1 recordings** — Go seam + fixture parity green;
-  blocked on `LF_RECORD` in v1 (owner approved 2026-07-12, option A — see ADR-010 work).
+- [x] **Record/replay parity green (ADR-010)** — `LF_RECORD` hook added to v1
+  `call_model` (owner-approved amendment); `scripts/record-v1.py` recorded a real 5-call
+  v1 review+judge round; `make replay`: request parity call-for-call (models, knobs,
+  message bytes) AND byte-identical review.md / verdict.md / manifest.json.
+  Negative-tested (tampered fixture → caught). Fixtures: `internal/engine/testdata/parity/`.
 - [ ] **Pilot onboarding ≤15 min using only docs/** — reviewer being arranged by owner.
 - Known issue (observed in live smoke, logged for M3): a client MCP retry re-executed
   the sync `lf_judge` once (duplicate metrics line, double provider spend). v1 had the

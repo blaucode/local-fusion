@@ -1,0 +1,102 @@
+// file: hexcolor.go
+// Package hexcolor parses CSS-style hex color strings.
+package hexcolor
+
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrInvalid reports a malformed hex color string.
+var ErrInvalid = errors.New("invalid hex color")
+
+// Parse parses "#RGB" or "#RRGGBB" (case-insensitive) into 8-bit channels.
+// Any other input returns ErrInvalid.
+func Parse(s string) (r, g, b uint8, err error) {
+	if len(s) == 0 || s[0] != '#' {
+		return 0, 0, 0, fmt.Errorf("%w: %q must start with '#'", ErrInvalid, s)
+	}
+	digits := s[1:]
+	switch len(digits) {
+	case 3:
+		vals, ok := nibbles(digits)
+		if !ok {
+			return 0, 0, 0, fmt.Errorf("%w: %q has non-hex digits", ErrInvalid, s)
+		}
+		// #abc expands to #aabbcc.
+		return vals[0]*17, vals[1]*17, vals[2]*17, nil
+	case 6:
+		vals, ok := nibbles(digits)
+		if !ok {
+			return 0, 0, 0, fmt.Errorf("%w: %q has non-hex digits", ErrInvalid, s)
+		}
+		return vals[0]<<4 | vals[1], vals[2]<<4 | vals[3], vals[4]<<4 | vals[5], nil
+	default:
+		return 0, 0, 0, fmt.Errorf("%w: %q must be #RGB or #RRGGBB", ErrInvalid, s)
+	}
+}
+
+// nibbles decodes each hex digit to its 4-bit value.
+func nibbles(s string) ([]uint8, bool) {
+	out := make([]uint8, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= '0' && c <= '9':
+			out[i] = c - '0'
+		case c >= 'a' && c <= 'f':
+			out[i] = c - 'a' + 10
+		case c >= 'A' && c <= 'F':
+			out[i] = c - 'A' + 10
+		default:
+			return nil, false
+		}
+	}
+	return out, true
+}
+
+// file: hexcolor_test.go
+package hexcolor
+
+import (
+	"errors"
+	"testing"
+)
+
+func TestParse(t *testing.T) {
+	cases := []struct {
+		in      string
+		r, g, b uint8
+		ok      bool
+	}{
+		{"#fff", 255, 255, 255, true},
+		{"#000", 0, 0, 0, true},
+		{"#abc", 0xaa, 0xbb, 0xcc, true},
+		{"#ABC", 0xaa, 0xbb, 0xcc, true},
+		{"#ff8000", 255, 128, 0, true},
+		{"#FF8000", 255, 128, 0, true},
+		{"#deadbe", 0xde, 0xad, 0xbe, true},
+		{"fff", 0, 0, 0, false},      // missing '#'
+		{"#ffff", 0, 0, 0, false},    // bad length
+		{"#ff", 0, 0, 0, false},      // bad length
+		{"#ggg", 0, 0, 0, false},     // non-hex
+		{"#ff80zz", 0, 0, 0, false},  // non-hex
+		{"", 0, 0, 0, false},         // empty
+		{"#", 0, 0, 0, false},        // bare hash
+	}
+	for _, c := range cases {
+		r, g, b, err := Parse(c.in)
+		if c.ok {
+			if err != nil || r != c.r || g != c.g || b != c.b {
+				t.Errorf("Parse(%q) = %d,%d,%d,%v want %d,%d,%d", c.in, r, g, b, err, c.r, c.g, c.b)
+			}
+			continue
+		}
+		if err == nil {
+			t.Errorf("Parse(%q) succeeded, want error", c.in)
+		}
+		if !errors.Is(err, ErrInvalid) {
+			t.Errorf("Parse(%q) error %v is not ErrInvalid", c.in, err)
+		}
+	}
+}

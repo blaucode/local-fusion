@@ -1,0 +1,1 @@
+{"command": "go test -race ./...", "exit_code": 0, "summary": "ok hexcolor 1.017s — all tests pass under -race"}
