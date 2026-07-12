@@ -155,8 +155,8 @@ func TestTaskAndBuildArtifacts(t *testing.T) {
 func TestJobPersistAndLoad(t *testing.T) {
 	s := newStore(t)
 	job := jobs.Job{
-		ID:  jobs.Key{ProjectID: "p", Slug: "sl", Stage: "plan", TaskID: "t1"}.ID(),
-		Key: jobs.Key{ProjectID: "p", Slug: "sl", Stage: "plan", TaskID: "t1"},
+		ID:      jobs.Key{ProjectID: "p", Slug: "sl", Stage: "plan", TaskID: "t1"}.ID(),
+		Key:     jobs.Key{ProjectID: "p", Slug: "sl", Stage: "plan", TaskID: "t1"},
 		Attempt: 1, Status: jobs.StatusRunning, Progress: "task 1/2",
 		SubmittedAt: time.Now().UTC(),
 	}

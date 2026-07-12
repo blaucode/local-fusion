@@ -11,7 +11,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"local-fusion/internal/jobs"
 	"local-fusion/internal/mcp"
+	"local-fusion/internal/store"
 	"local-fusion/internal/version"
 )
 
@@ -40,6 +42,8 @@ func serve(args []string) error {
 	addr := fs.String("addr", "127.0.0.1:8484", "HTTP listen address (host:port)")
 	stdio := fs.Bool("stdio", false, "serve MCP over stdio instead of HTTP (kept transport, ADR-002)")
 	insecure := fs.Bool("insecure-no-token", false, "allow non-localhost bind without LF_AUTH_TOKEN (container-internal use only — see docs/configuration.md#auth)")
+	dataDir := fs.String("data", "/data", "artifact volume root (ADR-005)")
+	workers := fs.Int("workers", 4, "max concurrently running jobs")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -51,7 +55,16 @@ func serve(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	st, err := store.New(*dataDir)
+	if err != nil {
+		return err
+	}
+	runner := jobs.NewRunner(*workers, st, slog.Default())
+	defer runner.Close()
+
 	server := mcp.NewServer()
+	mcp.RegisterTools(server, mcp.Deps{Runner: runner, Store: st})
+
 	if *stdio {
 		slog.Info("mcp stdio serving", "version", version.String())
 		return mcp.ServeStdio(ctx, server)
@@ -68,6 +81,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `usage: local-fusion <command>
 
 commands:
-  serve [--addr 127.0.0.1:8484] [--stdio]   run the MCP server
+  serve [--addr 127.0.0.1:8484] [--stdio] [--data /data] [--workers 4]
+                                             run the MCP server
   version                                    print build version`)
 }

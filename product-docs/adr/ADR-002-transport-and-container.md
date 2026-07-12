@@ -75,6 +75,12 @@ server in a `golang:1.25` container on `127.0.0.1:8484`):
 - **Cursor: PASS** — owner-verified same day:
   `{"echo":"hello from cursor","server":"lf-spike-s2"}`. Client matrix 3/3 green.
 
+**M2 client-compat finding (2026-07-11):** the Go SDK infers boolean `true` JSON schemas
+for `any`-typed output fields; Claude Code's client rejects boolean property schemas —
+its tools fetch fails and every tool disappears ("Connected · tools fetch failed").
+Rule: lf_* tools declare **no outputSchema** (SDK `Out = any`, matching v1's schema-less
+dict returns); result shapes are pinned by `internal/mcp/tools_test.go` instead.
+
 **M2 implementation note (2026-07-11):** in-container the process must bind `0.0.0.0`, so
 the "refuse non-localhost bind without token" rule gets an explicit override flag
 (`serve --insecure-no-token`, baked into the image CMD only); the loopback-only guarantee

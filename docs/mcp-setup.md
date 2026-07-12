@@ -48,8 +48,8 @@ Cursor Settings → MCP → Add server, or edit `~/.cursor/mcp.json`:
 ## Verifying
 
 Ask the agent to list its MCP tools: it should report the `lf_*` tools this server
-exposes. (During M2 the tool list is still growing — an empty list means you're on a
-pre-tools build; `local-fusion version` tells you which.)
+exposes (`lf_job`, `lf_cancel`, `lf_status` on current builds — see the
+[tool reference](./tools.md); the list grows through M2).
 
 All three clients above were verified against this server's transport during the M1 S2
 spike (see `product-docs/adr/ADR-002-transport-and-container.md`).

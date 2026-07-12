@@ -33,6 +33,24 @@ func (s *Store) Persist(job jobs.Job) {
 	}
 }
 
+// LoadJob returns one persisted snapshot by job id (lf_job fallback for jobs
+// that predate a server restart).
+func (s *Store) LoadJob(id string) (jobs.Job, bool) {
+	if err := validateID("job_id", id); err != nil {
+		return jobs.Job{}, false
+	}
+	data, err := os.ReadFile(filepath.Join(s.root, "jobs", id+".json"))
+	if err != nil {
+		return jobs.Job{}, false
+	}
+	var job jobs.Job
+	if err := json.Unmarshal(data, &job); err != nil {
+		slog.Warn("store: corrupt job snapshot", "job", id, "err", err)
+		return jobs.Job{}, false
+	}
+	return job, true
+}
+
 // LoadJobs returns the last persisted snapshot of every known job — used at
 // startup so lf_status can list pre-restart jobs (any that were mid-flight
 // show their last persisted state; the runner does not resurrect them).

@@ -5,11 +5,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"local-fusion/internal/jobs"
+	"local-fusion/internal/store"
 	"local-fusion/internal/version"
 )
 
@@ -75,7 +79,16 @@ func TestHealthzOpenAndTokenGuard(t *testing.T) {
 // surface (snapshot grows as lf_* tools land).
 func TestStreamableHTTPContract(t *testing.T) {
 	token := "s3cret"
-	ts := httptest.NewServer(Handler(NewServer(), HTTPConfig{Token: token}))
+	srv := NewServer()
+	st, err := store.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner := jobs.NewRunner(2, st, nil)
+	defer runner.Close()
+	RegisterTools(srv, Deps{Runner: runner, Store: st})
+
+	ts := httptest.NewServer(Handler(srv, HTTPConfig{Token: token}))
 	defer ts.Close()
 
 	authed := &http.Client{Transport: &bearerTransport{token: token}}
@@ -99,14 +112,16 @@ func TestStreamableHTTPContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tools/list: %v", err)
 	}
-	// Contract snapshot: no tools registered yet (M2b). This assertion is the
-	// reviewable diff when lf_* tools land (testing strategy: contract tests).
-	if len(tools.Tools) != 0 {
-		names := make([]string, 0, len(tools.Tools))
-		for _, tool := range tools.Tools {
-			names = append(names, tool.Name)
-		}
-		t.Fatalf("unexpected tools registered: %v — update the contract snapshot deliberately", names)
+	// Contract snapshot (testing strategy: a tool-surface change is a
+	// reviewable diff). Update deliberately, in the same commit as the change.
+	want := []string{"lf_cancel", "lf_job", "lf_status"}
+	names := make([]string, 0, len(tools.Tools))
+	for _, tool := range tools.Tools {
+		names = append(names, tool.Name)
+	}
+	sort.Strings(names)
+	if !slices.Equal(names, want) {
+		t.Fatalf("tool surface = %v, want %v — update the contract snapshot deliberately", names, want)
 	}
 }
 
