@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -41,6 +42,9 @@ func New(dir string) (*Store, error) {
 	}
 	return &Store{root: dir}, nil
 }
+
+// Root returns the volume root (diagnostics, ops tooling, tests).
+func (s *Store) Root() string { return s.root }
 
 // idRe constrains agent-supplied path components (project_id, slug, task ids).
 // v1 trusted its own slugify; v2's server sits across a trust boundary and
@@ -114,14 +118,41 @@ func ValidateRelPath(path string) (string, error) {
 
 // ─── manifest (schema unchanged from v1 — port contract) ────────────────────
 
+// PyFloat marshals like Python's json.dumps floats: integral values keep a
+// trailing ".0" ("9.0", not "9") — required for byte-parity of manifests,
+// verdicts, and metrics against v1 (ADR-010).
+type PyFloat float64
+
+func (f PyFloat) MarshalJSON() ([]byte, error) {
+	return []byte(PyFloatRepr(float64(f))), nil
+}
+
+// PyFloatRepr renders a float the way Python's repr/str does for the values
+// this system produces (shortest round-trip, ".0" on integers).
+func PyFloatRepr(f float64) string {
+	s := strconv.FormatFloat(f, 'f', -1, 64)
+	if !strings.ContainsAny(s, ".eE") {
+		s += ".0"
+	}
+	return s
+}
+
+// ScoreSet is the judged-task score block, in v1's key order.
+type ScoreSet struct {
+	Req   PyFloat `json:"req"`
+	Sec   PyFloat `json:"sec"`
+	Maint PyFloat `json:"maint"`
+	Avg   PyFloat `json:"avg"`
+}
+
 // Task is one manifest task entry; field set and order match v1 plan.py.
 type Task struct {
-	ID     string   `json:"id"`
-	Slug   string   `json:"slug"`
-	Title  string   `json:"title"`
-	Deps   []string `json:"deps"`
-	Status string   `json:"status"`
-	Scores any      `json:"scores"`
+	ID     string    `json:"id"`
+	Slug   string    `json:"slug"`
+	Title  string    `json:"title"`
+	Deps   []string  `json:"deps"`
+	Status string    `json:"status"`
+	Scores *ScoreSet `json:"scores"`
 }
 
 // Manifest matches v1 artifacts.py/plan.py field-for-field, in order.
@@ -212,6 +243,26 @@ func (s *Store) WriteTaskArtifacts(projectID, slug, taskID, taskSlug string, adr
 		}
 	}
 	return nil
+}
+
+// WriteTaskArtifact writes a single named task artifact (e.g. an
+// agent-supplied plan.md brief in M2, before the plan stage ports — briefs
+// enter as data per the ADR-001 amendment).
+func (s *Store) WriteTaskArtifact(projectID, slug, taskID, taskSlug, name string, content []byte) error {
+	dir, err := s.slugDir(projectID, slug)
+	if err != nil {
+		return err
+	}
+	if err := validateID("task_id", taskID); err != nil {
+		return err
+	}
+	if err := validateID("task_slug", taskSlug); err != nil {
+		return err
+	}
+	if err := validateID("artifact name", name); err != nil {
+		return err
+	}
+	return atomicWrite(filepath.Join(dir, "tasks", taskDirName(taskID, taskSlug), name), content)
 }
 
 // WriteBuildArtifact writes one named build artifact (review.md, verdict.md).

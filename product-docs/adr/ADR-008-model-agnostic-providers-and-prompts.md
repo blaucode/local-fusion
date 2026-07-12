@@ -47,7 +47,21 @@ biggest un-testable port risk (wording drift) into a mechanically checkable one 
   not code).
 - Revisit: provider-specific streaming; utls/curl-shim fallback if S1 fails (ADR-001).
 
+## Amendment (2026-07-12): M2 implementation notes
+
+- **Dependency added: `gopkg.in/yaml.v3`** — parses the unchanged v1 `providers.yaml`
+  schema in `internal/engine/providers`. Boring, standard, no transitive baggage.
+- **Prompt consumption:** the frozen `prompts/*.tmpl` files are verbatim Python source
+  segments; the Go engine embeds them (`//go:embed`, root package `prompts`) and a small
+  loader evaluates the string-literal concatenation and `{placeholder}` fields at first
+  use. Prompt wording therefore exists in exactly one place; loader correctness is pinned
+  by tests that assert rendered output equals what v1's Python produces.
+- **Parity discipline learned while porting:** Python `round()` is banker's rounding on
+  the exact binary value (Go port uses `big.Rat` half-to-even); Python float repr keeps
+  `.0` on integral floats (ported as `PyFloat` for manifests/verdicts/metrics); judges
+  and reviewers run **sequentially** to preserve v1's request order for replay parity.
+
 ## Action Items
-1. [ ] M0: extraction script Python→`prompts/*.tmpl` + byte-diff CI check
-2. [ ] `openai-compatible` client (S1 spike grows into it); `anthropic` client by M4
+1. [x] M0: extraction script Python→`prompts/*.tmpl` + byte-diff CI check (commit `4308387`)
+2. [x] `openai-compatible` client — `internal/engine/providers` (M2); `anthropic` client by M4
 3. [ ] Cost-profile presets shipped as example `providers.yaml` variants

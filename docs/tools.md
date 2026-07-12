@@ -7,8 +7,42 @@ The async pattern (long stages): submit returns a `job_id` in under 2 seconds; p
 `lf_job` every 30–60 seconds until the status is terminal. Job state survives server
 restarts and agent crashes — rediscover job ids with `lf_status`.
 
-> M2 note: the submit tools (`lf_plan`, `lf_coder_fusion`, `lf_review`, `lf_judge`)
-> land later in M2/M3; this page documents what the current build serves.
+> M2 note: the async submit tools (`lf_plan`, `lf_coder_fusion`) land in M3; this page
+> documents what the current build serves.
+
+## The gate loop (what your agent does per task)
+
+1. Implement the task; run the test suite yourself.
+2. `lf_review` with the changed files → fix the findings that matter.
+3. Re-run tests; call `lf_judge` with the changed files **and the test report**.
+4. PASS ⇔ tests green AND average score ≥ 8.0. A red test run makes PASS impossible —
+   no model can override the test runner.
+
+Until planning runs on the server (M3), supply the task brief once via the `brief`
+argument (either tool); it is stored as the task's `plan.md` and reused afterwards.
+
+## lf_review
+
+Multi-model code review of an implementation against its task brief. Synchronous.
+
+**Args:** `project_id`, `slug`, `task_id`, `task_slug`, `changed_files` (full file
+contents, concatenated), optional `pipeline`, optional `brief` (first call only).
+
+**Returns:** `{ok, critical, important, minor, findings: [{model_key, text}],
+review_md}` — `review.md` is also persisted in the artifact volume.
+
+## lf_judge
+
+The quality gate: dual-judge scoring plus the deterministic test gate. Synchronous
+(reasoning judges can take minutes).
+
+**Args:** as `lf_review`, plus **`test_report`**: `{command, exit_code, summary}` from
+the test run you just executed. Malformed reports are rejected outright — a gate that
+silently ignores bad evidence is worse than no gate.
+
+**Returns:** `{ok, verdict, avg, req, sec, maint, gate_reason?, judges[], verdict_md}`.
+`verdict` is `PASS` only when `exit_code == 0` **and** the score average is ≥ 8.0.
+Every run appends a `metrics.jsonl` record (schema `build-2.0`).
 
 ## lf_job
 

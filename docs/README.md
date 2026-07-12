@@ -9,6 +9,7 @@
 - [Tool reference](./tools.md) — the `lf_*` tools
 
 **Status (M2, in progress):** the server runs with both transports (Streamable HTTP +
-stdio), health checking, token auth, the async job engine, and the job tools
-(`lf_job`, `lf_cancel`, `lf_status`). The submit tools (`lf_review`, `lf_judge`,
-`lf_plan`, `lf_coder_fusion`) land next — each ships with its docs section.
+stdio), health checking, token auth, the async job engine, the job tools (`lf_job`,
+`lf_cancel`, `lf_status`), and the quality gate itself — `lf_review` and `lf_judge`
+(dual-judge + deterministic test gate). The async planning tools (`lf_plan`,
+`lf_coder_fusion`) land in M3.

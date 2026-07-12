@@ -14,6 +14,15 @@ env-only by design: command-line arguments are visible in `ps`.
 Copy `providers.env.example` to `providers.env` and fill these in. Never commit the real
 file (it's gitignored); the server never logs key material.
 
+## Providers
+
+`lf_review` and `lf_judge` need the model registry: a **v1-schema `providers.yaml`**
+(providers, models, pipelines — your existing v1 file works unmodified). Put it at
+`/data/providers.yaml` (inside the volume) or point `serve --config` at it. Without it
+the server still runs; the stage tools answer with a structured error pointing here.
+
+`LF_USER` (optional) attributes `metrics.jsonl` records to you; defaults to `$USER`.
+
 ## Auth
 
 `LF_AUTH_TOKEN` — static bearer token protecting `/mcp`.
