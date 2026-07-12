@@ -91,6 +91,25 @@ under `-race`, 0 leaks/races); **user docs v1** (quickstart, MCP setup per agent
 reference for everything shipped so far — R15) proven by **pilot engineer #1 onboarding
 ≤15 min using only `docs/`**, no author help.
 
+**M2 exit-gate status (2026-07-12):**
+- [x] **Full gated run on default agent timeouts** — live smoke `lf-m2-smoke/hexcolor`:
+  Claude Code as agent, v1 `providers.yaml` unmodified; `lf_review` 89s (3 reviewers),
+  `lf_judge` PASS 10.0 avg (deepseek-v4-pro via Cloudflare + gemma4-31b, ~71s+2s);
+  verdict.md/review.md/manifest/metrics `build-2.0` all landed in the volume, v1-shaped.
+- [x] **Red-test PASS impossible** — enforced in engine (`ApplyTestGate`) and pinned at
+  unit + transport level (`TestRedTestsForceFail`, `TestGatedFlowOverMCP`: judges scoring
+  straight 10s against `exit_code:1` → FAIL with gate reason).
+- [x] **Soak test** — `make soak`: 25×20 concurrent jobs, cancel storms, budget expiries,
+  0 leaks / 0 races.
+- [x] **Kill-switch test** — runner-level under `-race` (budget kills wedged panel;
+  budget kill cannot launder into done); applies to async stages when they land (M3).
+- [ ] **Record/replay parity vs real v1 recordings** — Go seam + fixture parity green;
+  blocked on `LF_RECORD` in v1 (owner approved 2026-07-12, option A — see ADR-010 work).
+- [ ] **Pilot onboarding ≤15 min using only docs/** — reviewer being arranged by owner.
+- Known issue (observed in live smoke, logged for M3): a client MCP retry re-executed
+  the sync `lf_judge` once (duplicate metrics line, double provider spend). v1 had the
+  same exposure; candidate fixes: request-hash dedupe for sync tools, or async judge.
+
 ### M3 — Port the planning brain, parity-gated (8–14 sessions)
 *(judge + review moved into M2 by the 2026-07-10 amendment.)* Order: **plan-solo**
 (decompose + haft — unblocks async planning, the original #1 pain) → **plan-full** (TL

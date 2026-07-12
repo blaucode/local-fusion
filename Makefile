@@ -92,7 +92,7 @@ docker-run: ## 🚀 Run the server container (HTTP :8484, volume, env-file)
 		printf "$(RED)❌ $(ENVFILE) not found.$(RESET) $(DIM)See docs/configuration.md — copy providers.env.example and add your keys.$(RESET)\n"; exit 1; fi
 	@printf "$(CYAN)🚀 Starting $(IMAGE):$(TAG) on 127.0.0.1:$(PORT)...$(RESET)\n"
 	@docker run -d --name $(BINARY) -p 127.0.0.1:$(PORT):$(PORT) \
-		-v $(VOLUME):/data --env-file $(ENVFILE) $(IMAGE):$(TAG)
+		-v $(VOLUME):/data --env-file $(ENVFILE) -e LF_USER=$$(id -un) $(IMAGE):$(TAG)
 	$(call ok,"server up → http://localhost:$(PORT)/mcp  (healthz: /healthz)")
 
 docker-stop: ## 🛑 Stop and remove the server container
