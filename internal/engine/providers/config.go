@@ -31,11 +31,17 @@ type Model struct {
 	Scores   map[string]float64 `yaml:"scores"`
 }
 
-// Panel mirrors pipelines.<name>.<role>_panel / judges.
+// Panel mirrors pipelines.<name>.<role>_panel / judges. The coder_fusion
+// block shares the same YAML slot but is flat model-name fields; those decode
+// here too (unknown fields are ignored everywhere else).
 type Panel struct {
 	N         *int     `yaml:"n"`
 	Models    []string `yaml:"models"`
 	Providers []string `yaml:"providers"`
+	CoderA    string   `yaml:"coder_a"`
+	CoderB    string   `yaml:"coder_b"`
+	Evaluator string   `yaml:"evaluator"`
+	Lead      string   `yaml:"lead"`
 }
 
 // Pipeline holds the per-role panels, keyed as in YAML (tl_panel,
@@ -83,6 +89,23 @@ func (c *Config) ResolveNamed(key string) (Resolved, error) {
 		return Resolved{}, fmt.Errorf("model '%s' provider '%s' is disabled", key, m.Provider)
 	}
 	return Resolved{Key: key, Model: m, Provider: p}, nil
+}
+
+// CoderFusionBlock returns the pipeline's coder_fusion model names with v1
+// coder_fusion.py error semantics.
+func (c *Config) CoderFusionBlock(pipeline string) (map[string]string, error) {
+	pipe, ok := c.Pipelines[pipeline]
+	if !ok {
+		return nil, fmt.Errorf("pipeline '%s' not found in config", pipeline)
+	}
+	cf, ok := pipe["coder_fusion"]
+	if !ok {
+		return nil, fmt.Errorf("pipeline '%s' has no coder_fusion block; add coder_a/coder_b/evaluator/lead", pipeline)
+	}
+	return map[string]string{
+		"coder_a": cf.CoderA, "coder_b": cf.CoderB,
+		"evaluator": cf.Evaluator, "lead": cf.Lead,
+	}, nil
 }
 
 // ResolveJudges ports judge.py::resolve_judges: the pipeline's judges.models

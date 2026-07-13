@@ -7,7 +7,25 @@ The async pattern (long stages): submit returns a `job_id` in under 2 seconds; p
 `lf_job` every 30–60 seconds until the status is terminal. Job state survives server
 restarts and agent crashes — rediscover job ids with `lf_status`.
 
-> M3 note: `lf_coder_fusion` lands later in M3.
+## lf_coder_fusion
+
+Submit async implementation of a planned task (returns a `job_id`; poll with
+[`lf_job`](#lf_job)). Requires the task's `plan.md` and `acceptance.md` — run
+[`lf_plan`](#lf_plan) first.
+
+Default is the fusion path: two coders implement in parallel, an evaluator picks the
+stronger as BASE and names grafts from the other, and a lead merges. Every rung degrades
+gracefully — one coder fails → the survivor ships; the evaluator fails → base A, no
+grafts; the lead fails → the chosen base ships ungrafted. `solo: true` uses a single
+coder.
+
+**Args:** `project_id`, `slug`, `task_id`, `task_slug`, optional `context`, optional
+`pipeline`, optional `solo`, optional `budget` (defaults: 15 min wall clock, 8 calls).
+
+**Result** (via `lf_job`): `{files: [{path, content}], base_chosen, notes}` — proposed
+files are returned **as data**; your agent applies them to the repo and then runs tests
+(the server never touches your filesystem). They are also persisted under
+`build/<task>/proposed/` in the artifact volume.
 
 ## lf_plan
 

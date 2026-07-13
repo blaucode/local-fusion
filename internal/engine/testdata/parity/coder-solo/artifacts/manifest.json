@@ -1,0 +1,15 @@
+{
+  "slug": "greeting-endpoint",
+  "base_branch": "main",
+  "branch": "feature/greeting-endpoint",
+  "tasks": [
+    {
+      "id": "01",
+      "slug": "impl",
+      "title": "impl",
+      "deps": [],
+      "status": "implemented",
+      "scores": null
+    }
+  ]
+}

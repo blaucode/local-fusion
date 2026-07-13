@@ -88,6 +88,7 @@ func serve(args []string) error {
 	mcp.RegisterTools(server, mcp.Deps{Runner: runner, Store: st})
 	mcp.RegisterStageTools(server, engineDeps)
 	mcp.RegisterPlanTool(server, mcp.PlanDeps{Engine: engineDeps, Runner: runner})
+	mcp.RegisterCoderTool(server, mcp.PlanDeps{Engine: engineDeps, Runner: runner})
 
 	if *stdio {
 		slog.Info("mcp stdio serving", "version", version.String())

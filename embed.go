@@ -121,6 +121,14 @@ func evalPySegment(src string) (*Template, error) {
 				return nil, err
 			}
 			i += 1 + adv
+		case c == 'r' && i+1 < len(src) && (src[i+1] == '"' || src[i+1] == '\''):
+			// Raw string (regex extractions): backslashes are literal.
+			lit, adv, err := scanPyRawString(src[i+1:], src[i+1])
+			if err != nil {
+				return nil, err
+			}
+			appendText(lit)
+			i += 1 + adv
 		case c == ' ' || c == '\t' || c == '\n' || c == '\r':
 			i++
 		default:
@@ -213,6 +221,34 @@ func scanPyString(s string, quote byte) (string, int, error) {
 		}
 	}
 	return "", 0, fmt.Errorf("unterminated string literal")
+}
+
+// scanPyRawString scans r"..." — backslashes stay literal; the only special
+// sequence is a backslash-quote pair, which (per Python) keeps BOTH chars but
+// does not close the string.
+func scanPyRawString(s string, quote byte) (string, int, error) {
+	if s[0] != quote {
+		return "", 0, fmt.Errorf("not a raw string literal")
+	}
+	var b strings.Builder
+	i := 1
+	for i < len(s) {
+		switch s[i] {
+		case quote:
+			return b.String(), i + 1, nil
+		case '\\':
+			if i+1 >= len(s) {
+				return "", 0, fmt.Errorf("dangling backslash in raw string")
+			}
+			b.WriteByte('\\')
+			b.WriteByte(s[i+1])
+			i += 2
+		default:
+			b.WriteByte(s[i])
+			i++
+		}
+	}
+	return "", 0, fmt.Errorf("unterminated raw string literal")
 }
 
 func unescape(c byte) (byte, error) {

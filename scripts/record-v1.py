@@ -19,6 +19,8 @@ Modes:
     plan-full-degraded — plan-full with the synthesizer call failed by the
         recorder harness (v1 source untouched): records the injected-failure
         degradation path (ADR-010) with a {"failed": true} sentinel line.
+    coder-solo — fixture-dir must contain plan.md, acceptance.md, context.txt,
+        slug.txt; seeds a planned task and runs coder_fusion_task(solo=True).
 
 Produces in fixture-dir: recording.jsonl (one line per model call: request
 sans key + response content) and artifacts/ (the v1-written slug tree).
@@ -45,7 +47,50 @@ def main():
 
     if mode in ("plan-solo", "plan-full", "plan-full-degraded"):
         return record_plan(v1, fixtures, mode)
+    if mode == "coder-solo":
+        return record_coder_solo(v1, fixtures)
     return record_review_judge(v1, fixtures)
+
+
+def record_coder_solo(v1, fixtures):
+    from fusion.common import load_config, load_env
+    from fusion.artifacts import init_slug, read_manifest, write_manifest, write_task_artifacts
+    from fusion import coder_fusion as fusion_coder
+
+    plan_md = (fixtures / "plan.md").read_text()
+    acceptance = (fixtures / "acceptance.md").read_text()
+    context = (fixtures / "context.txt").read_text()
+    slug = (fixtures / "slug.txt").read_text().strip()
+
+    recording = fixtures / "recording.jsonl"
+    if recording.exists():
+        recording.unlink()
+    os.environ["LF_RECORD"] = str(recording)
+
+    cfg = load_config(root=v1)
+    env = load_env(root=v1)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        proj = Path(tmp) / "project"
+        proj.mkdir()
+        init_slug(str(proj), slug, "recorded coder-solo parity case", "main", f"feature/{slug}")
+        manifest = read_manifest(str(proj), slug)
+        manifest["tasks"] = [{"id": "01", "slug": "impl", "title": "impl",
+                              "deps": [], "status": "planned", "scores": None}]
+        write_manifest(str(proj), slug, manifest)
+        write_task_artifacts(str(proj), slug, "01", "impl", "", plan_md, acceptance, context)
+
+        fusion_coder.coder_fusion_task(str(proj), slug, "01", "impl", context, cfg, env, solo=True)
+
+        artifacts = fixtures / "artifacts"
+        if artifacts.exists():
+            shutil.rmtree(artifacts)
+        shutil.copytree(proj / "local-fusion" / slug, artifacts)
+
+    n = sum(1 for _ in recording.open())
+    print(f"recorded {n} model calls → {recording}")
+    print(f"v1 artifacts → {fixtures / 'artifacts'}")
+    return 0
 
 
 def record_plan(v1, fixtures, mode):

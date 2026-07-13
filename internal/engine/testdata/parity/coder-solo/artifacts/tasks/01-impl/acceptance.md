@@ -1,0 +1,14 @@
+- [ ] `/greeting` returns 200 and `{"message":"hello <name>"}` for authenticated users with a valid, non‑empty name.
+- [ ] Unauthenticated requests return 401, with exact error envelope matching existing handlers and `WWW-Authenticate: Bearer realm="api"` header.
+- [ ] Malformed, expired, or wrong-key tokens all yield 401 (or 403 if existing middleware distinguishes them).
+- [ ] Requests where the token’s `name` claim is empty or whitespace‑only return 400 (`{"error":"user name not set"}` or similar, matching the project’s error shape).
+- [ ] Name is sanitised: trimmed, control characters removed, length limited to 100 characters (or truncated with a comment).
+- [ ] Response includes `Cache-Control: no-store, private`, `Vary: Authorization`, `X-Content-Type-Options: nosniff`.
+- [ ] Route is registered exactly once, only for GET, inside the existing auth middleware group.
+- [ ] The `auth.UserFromContext` helper is used for extraction; no other handler directly reads the context key.
+- [ ] Unit tests cover all edge cases listed in the plan and achieve at least 80% line coverage on new files.
+- [ ] Benchmark shows average latency under 200 µs (with test‑signed token; adjust threshold as needed).
+- [ ] No new dependencies added (e.g., `go.mod` unchanged).
+- [ ] Linter, vet, and tests all pass (`go test ./...`, `golint ./...`, `go vet ./...`).
+- [ ] API documentation (if present) updated with the new endpoint, response schema, and auth details.
+- [ ] Logging emits a structured log per request (user ID only, no name) using the existing logging framework.

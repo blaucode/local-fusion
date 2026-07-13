@@ -139,7 +139,14 @@ gate; the judge bench is a documented SPOF and stays off the critical path).
   (v1 contract). Two recordings: real 8-call v1 run (request + artifact-tree byte parity
   PASS first replay) and a recorder-injected synthesizer failure — v1's degrade-to-
   deliberation path replays byte-identically (`failed` sentinel in recording.jsonl).
-- [ ] coder-solo → coder-fusion (last, port-never-improve — ADR-009)
+- [x] **coder ported (solo + fusion code paths) + coder-solo parity green** — full
+  coder_fusion_task port with every degradation rung (survivor / evaluator-default /
+  lead-fallback); `lf_coder_fusion` async tool (7th, completing the v1 surface);
+  FILE-block contract consumed from the frozen artifacts.tmpl (r-string regex);
+  coder-solo recording: 1-call request parity + proposed-files byte parity, first
+  replay. Ops note: coder fixtures contain .go files — lint excludes testdata/.
+- [ ] coder-fusion parity recording (parallel coder-a/coder-b call ordering needs an
+  order-tolerant replay match for those two calls; everything after is sequential)
 - [ ] skill update: submit→poll loop, intent/git_state gathering (ADR-011)
 
 ### M4 — v2-only features (4–6 sessions)

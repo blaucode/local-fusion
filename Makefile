@@ -70,7 +70,7 @@ race: test ## 🏁 Alias for test (all tests always run under -race)
 lint: ## 🔍 go vet + gofmt check (in Docker)
 	@printf "$(CYAN)🔍 Linting in $(GO_IMAGE)...$(RESET)\n"
 	@$(RUN_GO) go vet ./...
-	@$(RUN_GO) sh -c 'out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi'
+	@$(RUN_GO) sh -c 'out=$$(gofmt -l . | grep -v testdata/); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi; true'
 	$(call ok,"lint clean")
 
 soak: ## 🌊 Job-runner soak test (M2 exit gate: concurrent jobs, cancellation storms)

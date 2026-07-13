@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"local-fusion/internal/engine/coder"
 	"local-fusion/internal/engine/judge"
 	"local-fusion/internal/engine/plan"
 	"local-fusion/internal/engine/providers"
@@ -274,6 +275,98 @@ func runPlanParity(t *testing.T, caseName string, run planFn) {
 		t.Fatal(err)
 	}
 	fmt.Printf("parity: %s %d-call request parity + artifact tree byte parity vs v1 recording\n", caseName, len(rc.calls))
+}
+
+// TestParityCoderSolo replays the recorded v1 coder_fusion_task(solo=True)
+// run: request parity for the coder call(s) and byte parity for the proposed
+// files + manifest (status implemented).
+func TestParityCoderSolo(t *testing.T) {
+	dir := filepath.Join("testdata", "parity", "coder-solo")
+	planMD := readFile(t, filepath.Join(dir, "plan.md"))
+	acceptance := readFile(t, filepath.Join(dir, "acceptance.md"))
+	codeContext := readFile(t, filepath.Join(dir, "context.txt"))
+	slug := strings.TrimSpace(readFile(t, filepath.Join(dir, "slug.txt")))
+
+	f, err := os.Open(filepath.Join(dir, "recording.jsonl"))
+	if err != nil {
+		t.Fatalf("no recording — run scripts/record-v1.py … coder-solo first: %v", err)
+	}
+	defer f.Close()
+	rc := &replayCaller{t: t}
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 1<<20), 1<<24)
+	for scanner.Scan() {
+		var call recordedCall
+		if err := json.Unmarshal(scanner.Bytes(), &call); err != nil {
+			t.Fatal(err)
+		}
+		rc.calls = append(rc.calls, call)
+	}
+
+	cfg, err := providers.Load(filepath.Join("testdata", "parity", "hexcolor", "providers.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Seed exactly as the recorder seeded v1.
+	const projectID = "parity"
+	if _, err := st.InitSlug(projectID, slug, "recorded coder-solo parity case", "main", "feature/"+slug, false); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := st.ReadManifest(projectID, slug)
+	m.Tasks = []store.Task{{ID: "01", Slug: "impl", Title: "impl", Deps: []string{}, Status: "planned"}}
+	if err := st.WriteManifest(projectID, slug, m); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WriteTaskArtifacts(projectID, slug, "01", "impl", "", planMD, acceptance, codeContext); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := coder.Task(context.Background(),
+		coder.Deps{Store: st, Cfg: cfg, Caller: rc, Log: func(s string) { t.Log(s) },
+			User: "parity", ServerVersion: "parity"},
+		projectID, slug, "01", "impl", codeContext, "default", true)
+	if err != nil {
+		t.Fatalf("coder solo: %v", err)
+	}
+	if res.BaseChosen != "solo" {
+		t.Fatalf("res = %+v", res)
+	}
+
+	if rc.next != len(rc.calls) {
+		t.Fatalf("request parity: v1 recorded %d calls, Go engine made %d", len(rc.calls), rc.next)
+	}
+
+	// Artifact parity across everything v1 wrote (incl. build/…/proposed/**).
+	root := filepath.Join(dir, "artifacts")
+	err = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		rel, _ := filepath.Rel(root, path)
+		relSlash := filepath.ToSlash(rel)
+		want, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		got, gerr := st.ReadArtifact(projectID, slug, relSlash)
+		if gerr != nil {
+			t.Errorf("artifact parity: %s missing in Go store: %v", relSlash, gerr)
+			return nil
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("artifact parity: %s diverges from v1\n--- go ---\n%s\n--- v1 ---\n%s", relSlash, got, want)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("parity: coder-solo %d-call request parity + artifact tree byte parity vs v1 recording\n", len(rc.calls))
 }
 
 func readFile(t *testing.T, path string) string {
