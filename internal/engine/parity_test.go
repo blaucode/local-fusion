@@ -17,10 +17,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"local-fusion/internal/engine/judge"
+	"local-fusion/internal/engine/plan"
 	"local-fusion/internal/engine/providers"
 	"local-fusion/internal/engine/review"
 	"local-fusion/internal/store"
@@ -161,6 +163,99 @@ func TestParityHexcolor(t *testing.T) {
 		}
 	}
 	fmt.Println("parity: 5-call request parity + 3-artifact byte parity vs v1 recording")
+}
+
+// TestParityPlanSolo replays the recorded v1 plan_feature(no_fusion=True) run
+// through the Go plan-solo engine. The manifest is compared modulo the
+// additive v2 `intent` field (ADR-011 — documented addition; v2 adds fields,
+// never changes existing ones); every other artifact must be byte-identical.
+func TestParityPlanSolo(t *testing.T) {
+	dir := filepath.Join("testdata", "parity", "plan-solo")
+	request := readFile(t, filepath.Join(dir, "request.txt"))
+	codeContext := readFile(t, filepath.Join(dir, "context.txt"))
+	slug := strings.TrimSpace(readFile(t, filepath.Join(dir, "slug.txt")))
+
+	f, err := os.Open(filepath.Join(dir, "recording.jsonl"))
+	if err != nil {
+		t.Fatalf("no recording — run scripts/record-v1.py … plan-solo first: %v", err)
+	}
+	defer f.Close()
+	rc := &replayCaller{t: t}
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 1<<20), 1<<24)
+	for scanner.Scan() {
+		var call recordedCall
+		if err := json.Unmarshal(scanner.Bytes(), &call); err != nil {
+			t.Fatal(err)
+		}
+		rc.calls = append(rc.calls, call)
+	}
+
+	cfg, err := providers.Load(filepath.Join("testdata", "parity", "hexcolor", "providers.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const projectID = "parity"
+	intent := store.Intent{Tier: "fix", Ref: "parity", ApprovedBy: "parity", DraftedBy: "human"}
+	// requestMD = plain request text: v1 init_slug wrote exactly that, and
+	// this test proves engine parity (the attestation block is tool-layer).
+	if _, err := plan.Solo(context.Background(),
+		plan.Deps{Store: st, Cfg: cfg, Caller: rc, Log: func(s string) { t.Log(s) }},
+		nil, projectID, slug, request, request, codeContext, "default",
+		"main", "feature/"+slug, intent, false); err != nil {
+		t.Fatalf("plan.Solo: %v", err)
+	}
+
+	if rc.next != len(rc.calls) {
+		t.Fatalf("request parity: v1 recorded %d calls, Go engine made %d", len(rc.calls), rc.next)
+	}
+
+	// Walk everything v1 wrote and demand byte equality (manifest: see above).
+	root := filepath.Join(dir, "artifacts")
+	err = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		rel, _ := filepath.Rel(root, path)
+		relSlash := filepath.ToSlash(rel)
+		want, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if relSlash == "manifest.json" {
+			m, rerr := st.ReadManifest(projectID, slug)
+			if rerr != nil {
+				return rerr
+			}
+			m.Intent = nil
+			got, merr := store.MarshalManifest(m)
+			if merr != nil {
+				return merr
+			}
+			if !bytes.Equal(got, want) {
+				t.Errorf("artifact parity: manifest.json (modulo intent) diverges\n--- go ---\n%s\n--- v1 ---\n%s", got, want)
+			}
+			return nil
+		}
+		got, gerr := st.ReadArtifact(projectID, slug, relSlash)
+		if gerr != nil {
+			t.Errorf("artifact parity: %s missing in Go store: %v", relSlash, gerr)
+			return nil
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("artifact parity: %s diverges from v1\n--- go ---\n%s\n--- v1 ---\n%s", relSlash, got, want)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("parity: plan-solo %d-call request parity + artifact tree byte parity vs v1 recording\n", len(rc.calls))
 }
 
 func readFile(t *testing.T, path string) string {

@@ -1,0 +1,15 @@
+{
+  "slug": "greeting-endpoint",
+  "base_branch": "main",
+  "branch": "feature/greeting-endpoint",
+  "tasks": [
+    {
+      "id": "01",
+      "slug": "add-a-get-greeting-endpoint-that-returns-message-hello",
+      "title": "Add a GET /greeting endpoint that returns {\"message\": \"hello <name>\"} for an aut",
+      "deps": [],
+      "status": "planned",
+      "scores": null
+    }
+  ]
+}

@@ -6,11 +6,17 @@ v1's own Python environment. This is the record half; the replay half is
 `make replay` in this repo.
 
 Usage:
-    python3 scripts/record-v1.py <v1-checkout> <fixture-dir>
+    python3 scripts/record-v1.py <v1-checkout> <fixture-dir> [mode]
 
-<fixture-dir> must contain brief.md, changed_files.txt, test_report.json.
-Produces there: recording.jsonl (one line per model call: request sans key +
-response content) and artifacts/ (the v1-written slug tree).
+Modes:
+    review-judge (default) — fixture-dir must contain brief.md,
+        changed_files.txt, test_report.json.
+    plan-solo — fixture-dir must contain request.txt and context.txt; runs
+        v1 plan_feature(no_fusion=True) against a scratch git repo (v1's
+        gitops is real, so the recorder fakes the repo, not the engine).
+
+Produces in fixture-dir: recording.jsonl (one line per model call: request
+sans key + response content) and artifacts/ (the v1-written slug tree).
 
 Requires the LF_RECORD hook in v1 fusion/common.py::call_model (owner-approved
 amendment, 2026-07-12). Live provider calls — needs v1 config/providers.env.
@@ -24,13 +30,65 @@ from pathlib import Path
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         print(__doc__, file=sys.stderr)
         return 2
     v1 = Path(sys.argv[1]).resolve()
     fixtures = Path(sys.argv[2]).resolve()
+    mode = sys.argv[3] if len(sys.argv) == 4 else "review-judge"
     sys.path.insert(0, str(v1 / "orchestrator"))
 
+    if mode == "plan-solo":
+        return record_plan_solo(v1, fixtures)
+    return record_review_judge(v1, fixtures)
+
+
+def record_plan_solo(v1, fixtures):
+    import subprocess
+
+    from fusion.common import load_config, load_env
+    from fusion import plan as fusion_plan
+
+    request = (fixtures / "request.txt").read_text()
+    context = (fixtures / "context.txt").read_text()
+    slug = (fixtures / "slug.txt").read_text().strip()
+
+    recording = fixtures / "recording.jsonl"
+    if recording.exists():
+        recording.unlink()
+    os.environ["LF_RECORD"] = str(recording)
+
+    cfg = load_config(root=v1)
+    env = load_env(root=v1)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        proj = Path(tmp) / "project"
+        proj.mkdir()
+        # v1's gitops is real: give it a real (scratch) repo on branch main.
+        for args in (
+            ["init", "-b", "main"],
+            ["config", "user.email", "parity@local"],
+            ["config", "user.name", "parity"],
+        ):
+            subprocess.run(["git", "-C", str(proj), *args], check=True, capture_output=True)
+        (proj / "README.md").write_text("scratch repo for v1 plan recording\n")
+        subprocess.run(["git", "-C", str(proj), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(proj), "commit", "-m", "init"], check=True, capture_output=True)
+
+        fusion_plan.plan_feature(str(proj), slug, request, context, cfg, env, no_fusion=True)
+
+        artifacts = fixtures / "artifacts"
+        if artifacts.exists():
+            shutil.rmtree(artifacts)
+        shutil.copytree(proj / "local-fusion" / slug, artifacts)
+
+    n = sum(1 for _ in recording.open())
+    print(f"recorded {n} model calls → {recording}")
+    print(f"v1 artifacts → {fixtures / 'artifacts'}")
+    return 0
+
+
+def record_review_judge(v1, fixtures):
     from fusion.common import load_config, load_env
     from fusion.artifacts import init_slug, write_manifest, write_task_artifacts
     from fusion import review as fusion_review

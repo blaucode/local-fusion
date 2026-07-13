@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -215,18 +216,32 @@ func (s *Store) ReadManifest(projectID, slug string) (Manifest, error) {
 	return m, nil
 }
 
-// WriteManifest persists manifest.json (2-space indent + trailing newline,
-// v1 formatting).
+// MarshalManifest renders manifest.json bytes exactly as v1's Python does:
+// 2-space indent, trailing newline, and NO HTML escaping — Go's default
+// json.Marshal turns `<name>` into `<name>`, Python doesn't
+// (caught by the plan-solo parity gate, ADR-010).
+func MarshalManifest(m Manifest) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(m); err != nil { // Encode appends the newline
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// WriteManifest persists manifest.json (v1 formatting — see MarshalManifest).
 func (s *Store) WriteManifest(projectID, slug string, m Manifest) error {
 	dir, err := s.slugDir(projectID, slug)
 	if err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(m, "", "  ")
+	data, err := MarshalManifest(m)
 	if err != nil {
 		return err
 	}
-	return atomicWrite(filepath.Join(dir, "manifest.json"), append(data, '\n'))
+	return atomicWrite(filepath.Join(dir, "manifest.json"), data)
 }
 
 // ─── task & build artifacts (v1 tree, verbatim names) ───────────────────────

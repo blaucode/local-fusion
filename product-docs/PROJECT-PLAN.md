@@ -125,6 +125,19 @@ injected-failure degradation paths; metrics records equivalent. One live run per
 **advisory smoke** (judge scores recorded, flagged if outside historical noise — never the
 gate; the judge bench is a documented SPOF and stays off the critical path).
 
+**M3 status (2026-07-13):**
+- [x] **plan-solo: shipped + parity green** — engine port + `lf_plan` async tool with
+  `git_state`/`intent` attestations and charters (commit `396c2c5`); live advisory smoke
+  (submit <2s → done ~2.5 min, 1 task); record/replay vs a real v1
+  `plan_feature(no_fusion=True)` run: 4-call request parity + artifact-tree byte parity,
+  manifest compared modulo the additive `intent` field. Parity caught a real divergence
+  — Go's JSON HTML-escaping (`<` → `<`) vs Python — fixed in the manifest writer
+  and pinned by test. The recorded run exercised the decompose fallback path; both
+  engines produced identical output from it.
+- [ ] plan-full (TL panel + synthesizer, incl. synthesize-degradation parity case)
+- [ ] coder-solo → coder-fusion (last, port-never-improve — ADR-009)
+- [ ] skill update: submit→poll loop, intent/git_state gathering (ADR-011)
+
 ### M4 — v2-only features (4–6 sessions)
 Hot reload (R8), stage-granular progress (R10), rubric config (R9 — only with pilot
 feedback in hand), provider `anthropic` client if not already exercised.

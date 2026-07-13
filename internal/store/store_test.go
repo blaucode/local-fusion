@@ -90,6 +90,24 @@ func TestManifestShapeMatchesV1(t *testing.T) {
 	}
 }
 
+// TestManifestNoHTMLEscaping pins the plan-solo parity fix: Python's
+// json.dumps leaves <, >, & raw; Go's default marshal escapes them.
+func TestManifestNoHTMLEscaping(t *testing.T) {
+	s := newStore(t)
+	m := Manifest{Slug: "sl", BaseBranch: "main", Branch: "b",
+		Tasks: []Task{{ID: "01", Slug: "t", Title: `hello <name> & "friends"`, Deps: []string{}, Status: "planned"}}}
+	if err := s.WriteManifest("p", "sl", m); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := s.ReadArtifact("p", "sl", "manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"hello <name> & \"friends\""`) {
+		t.Fatalf("manifest escaping diverges from Python:\n%s", raw)
+	}
+}
+
 func TestPathValidationRejectsTraversal(t *testing.T) {
 	s := newStore(t)
 
