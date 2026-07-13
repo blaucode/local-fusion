@@ -108,15 +108,15 @@ func evalPySegment(src string) (*Template, error) {
 	for i < len(src) {
 		c := src[i]
 		switch {
-		case c == '"':
-			lit, adv, err := scanPyString(src[i:])
+		case c == '"' || c == '\'':
+			lit, adv, err := scanPyString(src[i:], c)
 			if err != nil {
 				return nil, err
 			}
 			appendText(lit)
 			i += adv
-		case c == 'f' && i+1 < len(src) && src[i+1] == '"':
-			adv, err := scanFString(src[i+1:], tpl, appendText)
+		case c == 'f' && i+1 < len(src) && (src[i+1] == '"' || src[i+1] == '\''):
+			adv, err := scanFString(src[i+1:], src[i+1], tpl, appendText)
 			if err != nil {
 				return nil, err
 			}
@@ -130,17 +130,18 @@ func evalPySegment(src string) (*Template, error) {
 	return tpl, nil
 }
 
-// scanFString scans an f"..." body (s[0]=='"'), interleaving literal text and
-// {name} placeholder parts into tpl. Returns bytes consumed.
-func scanFString(s string, tpl *Template, appendText func(string)) (int, error) {
-	if s[0] != '"' {
+// scanFString scans an f-string body (s[0] is the quote rune, " or '),
+// interleaving literal text and {name} placeholder parts into tpl. Returns
+// bytes consumed.
+func scanFString(s string, quote byte, tpl *Template, appendText func(string)) (int, error) {
+	if s[0] != quote {
 		return 0, fmt.Errorf("bad f-string")
 	}
 	var text strings.Builder
 	j := 1
 	for j < len(s) {
 		switch s[j] {
-		case '"':
+		case quote:
 			appendText(text.String())
 			return j + 1, nil
 		case '\\':
@@ -184,17 +185,17 @@ func scanFString(s string, tpl *Template, appendText func(string)) (int, error) 
 	return 0, fmt.Errorf("unterminated f-string")
 }
 
-// scanPyString scans a plain "..." literal starting at s[0]=='"', returning
-// the unescaped text and bytes consumed.
-func scanPyString(s string) (string, int, error) {
-	if s[0] != '"' {
+// scanPyString scans a plain string literal (quote is " or '), returning the
+// unescaped text and bytes consumed.
+func scanPyString(s string, quote byte) (string, int, error) {
+	if s[0] != quote {
 		return "", 0, fmt.Errorf("not a string literal")
 	}
 	var b strings.Builder
 	i := 1
 	for i < len(s) {
 		switch s[i] {
-		case '"':
+		case quote:
 			return b.String(), i + 1, nil
 		case '\\':
 			if i+1 >= len(s) {

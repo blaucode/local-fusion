@@ -7,8 +7,50 @@ The async pattern (long stages): submit returns a `job_id` in under 2 seconds; p
 `lf_job` every 30–60 seconds until the status is terminal. Job state survives server
 restarts and agent crashes — rediscover job ids with `lf_status`.
 
-> M2 note: the async submit tools (`lf_plan`, `lf_coder_fusion`) land in M3; this page
-> documents what the current build serves.
+> M3 note: `lf_plan` currently runs plan-solo (decompose + deliberation per task);
+> the TL-panel + synthesizer path and `lf_coder_fusion` land later in M3.
+
+## lf_plan
+
+Submit async planning for a slug. Returns a `job_id` in under 2 seconds — poll with
+[`lf_job`](#lf_job) every 30–60s. Long-running by design (minutes per task); the job
+survives agent crashes and disconnects.
+
+**Before calling:** create `feature/<slug>` from a clean tree (the server never touches
+your repo — you attest instead), and have your human-owned intent ready.
+
+**Args:** `project_id`, `slug`, `request`, optional `context` (code the agent gathered),
+optional `pipeline`, optional `force`, optional `budget`
+(`{max_wall_clock_seconds, max_model_calls, max_tokens_total}`), plus two **required
+attestations**:
+
+- `git_state`: `{branch, base_branch, clean: true}` — refused otherwise.
+- `intent`: `{tier, ref, approved_by, drafted_by}` — the loop refuses goal-free runs.
+  Tiers: `feature` (ref = PRD/ADR path or URL), `fix` (ref = approved brief or issue),
+  `chore` (ref = a **charter id**; see below). `drafted_by` may be `agent` — authorship
+  is free, ownership is not. Both attestations are recorded in `request.md` and the
+  manifest for audit.
+
+**Returns:** `{ok, job_id, existing, status}` — `existing: true` means an identical job
+was already queued/running (idempotent resubmit). Same slug with *different* arguments
+while running returns a conflict; `lf_cancel` first.
+
+**Result** (via `lf_job` when done): the manifest — tasks with per-task briefs written
+to the store (`scope.md`, `tasks/<id>-<slug>/{adr,plan,acceptance,context}.md`).
+
+### Charters (chore-tier intent)
+
+A charter is a standing, human-approved authorization for a class of chores. Create one
+by dropping `charters/<id>.json` into the data volume:
+
+```json
+{"id": "weekly-deps", "title": "Weekly dependency bumps",
+ "approved_by": "your-name", "created_at": "2026-07-13T00:00:00Z",
+ "expires": "2026-10-01T00:00:00Z"}
+```
+
+`expires` is optional. A chore-tier `lf_plan` referencing a missing, unapproved, or
+expired charter is refused.
 
 ## The gate loop (what your agent does per task)
 

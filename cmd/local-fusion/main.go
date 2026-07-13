@@ -78,14 +78,16 @@ func serve(args []string) error {
 		user = os.Getenv("USER")
 	}
 
-	server := mcp.NewServer()
-	mcp.RegisterTools(server, mcp.Deps{Runner: runner, Store: st})
-	mcp.RegisterStageTools(server, mcp.EngineDeps{
+	engineDeps := mcp.EngineDeps{
 		Store: st, Cfg: cfg,
 		Caller: &providers.Client{Env: os.Getenv, Log: func(m string) { slog.Info(m) }},
 		Log:    func(m string) { slog.Info(m) },
 		User:   user, Ver: version.Version,
-	})
+	}
+	server := mcp.NewServer()
+	mcp.RegisterTools(server, mcp.Deps{Runner: runner, Store: st})
+	mcp.RegisterStageTools(server, engineDeps)
+	mcp.RegisterPlanTool(server, mcp.PlanDeps{Engine: engineDeps, Runner: runner})
 
 	if *stdio {
 		slog.Info("mcp stdio serving", "version", version.String())

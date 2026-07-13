@@ -155,12 +155,24 @@ type Task struct {
 	Scores *ScoreSet `json:"scores"`
 }
 
+// Intent is the ADR-011 attestation: every plan run traces to human-owned
+// intent. Recorded in the manifest (and request.md) for audit.
+type Intent struct {
+	Tier       string `json:"tier"` // feature | fix | chore
+	Ref        string `json:"ref"`
+	ApprovedBy string `json:"approved_by"`
+	DraftedBy  string `json:"drafted_by"` // human | agent
+}
+
 // Manifest matches v1 artifacts.py/plan.py field-for-field, in order.
+// Intent is a v2 addition (ADR-011) — additive, omitted when absent, so
+// v1-shaped manifests round-trip unchanged.
 type Manifest struct {
-	Slug       string `json:"slug"`
-	BaseBranch string `json:"base_branch"`
-	Branch     string `json:"branch"`
-	Tasks      []Task `json:"tasks"`
+	Slug       string  `json:"slug"`
+	BaseBranch string  `json:"base_branch"`
+	Branch     string  `json:"branch"`
+	Tasks      []Task  `json:"tasks"`
+	Intent     *Intent `json:"intent,omitempty"`
 }
 
 // ErrExists reports an init on an existing slug without force (v1 semantics).
@@ -243,6 +255,18 @@ func (s *Store) WriteTaskArtifacts(projectID, slug, taskID, taskSlug string, adr
 		}
 	}
 	return nil
+}
+
+// WriteSlugArtifact writes a named artifact at the slug root (scope.md).
+func (s *Store) WriteSlugArtifact(projectID, slug, name string, content []byte) error {
+	dir, err := s.slugDir(projectID, slug)
+	if err != nil {
+		return err
+	}
+	if err := validateID("artifact name", name); err != nil {
+		return err
+	}
+	return atomicWrite(filepath.Join(dir, name), content)
 }
 
 // WriteTaskArtifact writes a single named task artifact (e.g. an

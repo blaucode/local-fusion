@@ -70,6 +70,21 @@ func TestReviewPrompts(t *testing.T) {
 	}
 }
 
+func TestPlanDecomposePromptSingleQuotedLiterals(t *testing.T) {
+	// plan.py block 2 mixes "..." and '...' literals (the JSON shape example
+	// contains double quotes) — the loader must evaluate both.
+	got := render(t, "plan", 2, map[string]string{"request_text": "R", "context_str": "C"})
+	if !strings.HasPrefix(got, "FEATURE REQUEST:\nR\n\nCODE CONTEXT:\nC\n\n") {
+		t.Fatalf("head: %q", got[:min(len(got), 120)])
+	}
+	if !strings.Contains(got, `[{"slug": "short-kebab-slug", "title": "Human title", "summary": "What this task builds and why", "deps": ["slug-of-prerequisite"]}]`) {
+		t.Fatalf("JSON shape line lost:\n%s", got)
+	}
+	if !strings.HasSuffix(got, "Hard maximum 8 tasks, but fewer is better.") {
+		t.Fatalf("tail: %q", got[max(0, len(got)-80):])
+	}
+}
+
 func TestMissingPlaceholderIsError(t *testing.T) {
 	tpl, err := Block("review", 2)
 	if err != nil {

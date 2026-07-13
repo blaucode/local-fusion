@@ -88,6 +88,7 @@ func TestStreamableHTTPContract(t *testing.T) {
 	defer runner.Close()
 	RegisterTools(srv, Deps{Runner: runner, Store: st})
 	RegisterStageTools(srv, EngineDeps{Store: st}) // Cfg nil: tools answer structurally
+	RegisterPlanTool(srv, PlanDeps{Engine: EngineDeps{Store: st}, Runner: runner})
 
 	ts := httptest.NewServer(Handler(srv, HTTPConfig{Token: token}))
 	defer ts.Close()
@@ -115,7 +116,7 @@ func TestStreamableHTTPContract(t *testing.T) {
 	}
 	// Contract snapshot (testing strategy: a tool-surface change is a
 	// reviewable diff). Update deliberately, in the same commit as the change.
-	want := []string{"lf_cancel", "lf_job", "lf_judge", "lf_review", "lf_status"}
+	want := []string{"lf_cancel", "lf_job", "lf_judge", "lf_plan", "lf_review", "lf_status"}
 	names := make([]string, 0, len(tools.Tools))
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
