@@ -7,8 +7,7 @@ The async pattern (long stages): submit returns a `job_id` in under 2 seconds; p
 `lf_job` every 30–60 seconds until the status is terminal. Job state survives server
 restarts and agent crashes — rediscover job ids with `lf_status`.
 
-> M3 note: `lf_plan` currently runs plan-solo (decompose + deliberation per task);
-> the TL-panel + synthesizer path and `lf_coder_fusion` land later in M3.
+> M3 note: `lf_coder_fusion` lands later in M3.
 
 ## lf_plan
 
@@ -16,11 +15,17 @@ Submit async planning for a slug. Returns a `job_id` in under 2 seconds — poll
 [`lf_job`](#lf_job) every 30–60s. Long-running by design (minutes per task); the job
 survives agent crashes and disconnects.
 
+By default each task gets the full deliberation: haft (frame → explore → compare), a
+TL panel that hunts for gaps, and a synthesizer that merges everything into the final
+three-part brief (ADR/PLAN/ACCEPTANCE). Pass `no_fusion: true` for the faster solo path
+(haft only). If the synthesizer fails mid-run, the task degrades gracefully to the
+deliberation output instead of aborting the plan.
+
 **Before calling:** create `feature/<slug>` from a clean tree (the server never touches
 your repo — you attest instead), and have your human-owned intent ready.
 
 **Args:** `project_id`, `slug`, `request`, optional `context` (code the agent gathered),
-optional `pipeline`, optional `force`, optional `budget`
+optional `pipeline`, optional `no_fusion`, optional `force`, optional `budget`
 (`{max_wall_clock_seconds, max_model_calls, max_tokens_total}`), plus two **required
 attestations**:
 

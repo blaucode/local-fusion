@@ -134,7 +134,11 @@ gate; the judge bench is a documented SPOF and stays off the critical path).
   — Go's JSON HTML-escaping (`<` → `<`) vs Python — fixed in the manifest writer
   and pinned by test. The recorded run exercised the decompose fallback path; both
   engines produced identical output from it.
-- [ ] plan-full (TL panel + synthesizer, incl. synthesize-degradation parity case)
+- [x] **plan-full: shipped + parity green (incl. degradation)** — TL panel + synthesizer
+  ported (blocks 9–12); `lf_plan` now defaults to the full path with `no_fusion` opt-out
+  (v1 contract). Two recordings: real 8-call v1 run (request + artifact-tree byte parity
+  PASS first replay) and a recorder-injected synthesizer failure — v1's degrade-to-
+  deliberation path replays byte-identically (`failed` sentinel in recording.jsonl).
 - [ ] coder-solo → coder-fusion (last, port-never-improve — ADR-009)
 - [ ] skill update: submit→poll loop, intent/git_state gathering (ADR-011)
 

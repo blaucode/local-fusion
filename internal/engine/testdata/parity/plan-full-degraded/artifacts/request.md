@@ -1,0 +1,1 @@
+Add a GET /greeting endpoint that returns {"message": "hello <name>"} for an authenticated user, with a unit test.

@@ -11,9 +11,14 @@ Usage:
 Modes:
     review-judge (default) — fixture-dir must contain brief.md,
         changed_files.txt, test_report.json.
-    plan-solo — fixture-dir must contain request.txt and context.txt; runs
-        v1 plan_feature(no_fusion=True) against a scratch git repo (v1's
+    plan-solo — fixture-dir must contain request.txt, context.txt, slug.txt;
+        runs v1 plan_feature(no_fusion=True) against a scratch git repo (v1's
         gitops is real, so the recorder fakes the repo, not the engine).
+    plan-full — same inputs; runs plan_feature(no_fusion=False): decompose +
+        haft + TL panel + synthesizer.
+    plan-full-degraded — plan-full with the synthesizer call failed by the
+        recorder harness (v1 source untouched): records the injected-failure
+        degradation path (ADR-010) with a {"failed": true} sentinel line.
 
 Produces in fixture-dir: recording.jsonl (one line per model call: request
 sans key + response content) and artifacts/ (the v1-written slug tree).
@@ -38,14 +43,15 @@ def main():
     mode = sys.argv[3] if len(sys.argv) == 4 else "review-judge"
     sys.path.insert(0, str(v1 / "orchestrator"))
 
-    if mode == "plan-solo":
-        return record_plan_solo(v1, fixtures)
+    if mode in ("plan-solo", "plan-full", "plan-full-degraded"):
+        return record_plan(v1, fixtures, mode)
     return record_review_judge(v1, fixtures)
 
 
-def record_plan_solo(v1, fixtures):
+def record_plan(v1, fixtures, mode):
     import subprocess
 
+    from fusion import common as fusion_common
     from fusion.common import load_config, load_env
     from fusion import plan as fusion_plan
 
@@ -61,6 +67,30 @@ def record_plan_solo(v1, fixtures):
     cfg = load_config(root=v1)
     env = load_env(root=v1)
 
+    if mode == "plan-full-degraded":
+        # Recorder-harness injection (v1 source untouched): fail exactly the
+        # synthesizer call, record it as a failed sentinel, let everything
+        # else hit the real providers and record normally.
+        real_call_model = fusion_common.call_model
+
+        def failing_call_model(model_cfg, provider_cfg, env_, messages,
+                               max_tokens=8192, label=None, timeout=190):
+            if label == "synthesize-plan":
+                with open(recording, "a") as f:
+                    f.write(json.dumps({
+                        "model_id": model_cfg["id"],
+                        "base_url": provider_cfg["base_url"].rstrip("/"),
+                        "messages": messages,
+                        "max_tokens": max_tokens,
+                        "timeout": timeout,
+                        "failed": True,
+                    }) + "\n")
+                return None
+            return real_call_model(model_cfg, provider_cfg, env_, messages,
+                                   max_tokens=max_tokens, label=label, timeout=timeout)
+
+        fusion_plan.call_model = failing_call_model
+
     with tempfile.TemporaryDirectory() as tmp:
         proj = Path(tmp) / "project"
         proj.mkdir()
@@ -75,7 +105,8 @@ def record_plan_solo(v1, fixtures):
         subprocess.run(["git", "-C", str(proj), "add", "-A"], check=True, capture_output=True)
         subprocess.run(["git", "-C", str(proj), "commit", "-m", "init"], check=True, capture_output=True)
 
-        fusion_plan.plan_feature(str(proj), slug, request, context, cfg, env, no_fusion=True)
+        fusion_plan.plan_feature(str(proj), slug, request, context, cfg, env,
+                                 no_fusion=(mode == "plan-solo"))
 
         artifacts = fixtures / "artifacts"
         if artifacts.exists():

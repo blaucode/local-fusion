@@ -61,7 +61,7 @@ pipelines:
 func planArgs() map[string]any {
 	return map[string]any{
 		"project_id": "repo", "slug": "feat", "request": "Build the thing",
-		"context": "ctx",
+		"context": "ctx", "no_fusion": true, // test pipeline has no synthesizer
 		"git_state": map[string]any{
 			"branch": "feature/feat", "base_branch": "main", "clean": true,
 		},

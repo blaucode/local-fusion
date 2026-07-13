@@ -42,6 +42,7 @@ type lfPlanIn struct {
 	Request   string          `json:"request" jsonschema:"the feature/fix request text"`
 	Context   string          `json:"context,omitempty" jsonschema:"code context the agent gathered (file contents, conventions)"`
 	Pipeline  string          `json:"pipeline,omitempty" jsonschema:"pipeline name (default: default)"`
+	NoFusion  bool            `json:"no_fusion,omitempty" jsonschema:"skip the TL panel + synthesizer (plan-solo); default false = full deliberation, matching v1"`
 	Force     bool            `json:"force,omitempty" jsonschema:"overwrite an existing slug"`
 	GitState  *gitStateIn     `json:"git_state,omitempty" jsonschema:"REQUIRED attestation that the agent created the branch on a clean tree (ADR-004)"`
 	Intent    *intentIn       `json:"intent,omitempty" jsonschema:"REQUIRED human-owned intent attestation (ADR-011); the loop refuses to run without it"`
@@ -131,8 +132,10 @@ func RegisterPlanTool(server *sdk.Server, d PlanDeps) {
 		git := *in.GitState
 
 		budgets := jobs.Budgets{
-			MaxWallClock:  30 * time.Minute,
-			MaxModelCalls: 40, // decompose + 3 haft calls × 8 tasks, with headroom
+			MaxWallClock: 30 * time.Minute,
+			// Full plan: decompose + (3 haft + panel(≤3) + synthesize) × ≤8
+			// tasks; headroom on top (ADR-007 defaults tune with pilot data).
+			MaxModelCalls: 80,
 		}
 		if b := in.Budget; b != nil {
 			if b.MaxWallClockSeconds > 0 {
@@ -153,7 +156,11 @@ func RegisterPlanTool(server *sdk.Server, d PlanDeps) {
 		job, existing, err := d.Runner.Submit(key, fingerprint, budgets,
 			func(jobCtx context.Context, jc *jobs.JobContext) (json.RawMessage, error) {
 				caller := &budgetedCaller{inner: engine.Caller, jc: jc}
-				res, err := plan.Solo(jobCtx,
+				run := plan.Full // v1 default; no_fusion flips to solo
+				if in.NoFusion {
+					run = plan.Solo
+				}
+				res, err := run(jobCtx,
 					plan.Deps{Store: engine.Store, Cfg: engine.Cfg, Caller: caller, Log: engine.Log},
 					jc.Progress,
 					in.ProjectID, in.Slug, in.Request, requestMD(in.Request, git, *in.Intent),

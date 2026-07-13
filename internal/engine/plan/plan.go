@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	prompts "local-fusion"
 	"local-fusion/internal/engine/providers"
@@ -244,6 +245,94 @@ func RunHaft(ctx context.Context, d Deps, taskText, codeContext string, tl provi
 	return compare, nil
 }
 
+// RunTLPanel ports plan.py::run_tl_panel (blocks 9-10): each TL model reviews
+// the deliberation plan for gaps; sequential (v1 request order); failed
+// panelists are skipped, never fatal.
+func RunTLPanel(ctx context.Context, d Deps, taskText, synthesis string, tlModels []providers.Resolved) ([]string, error) {
+	system, err := renderBlock(9, nil)
+	if err != nil {
+		return nil, err
+	}
+	user, err := renderBlock(10, map[string]string{
+		"task_text": taskText, "synthesis": synthesis,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var findings []string
+	for i, tl := range tlModels {
+		d.Log(fmt.Sprintf("[TL panel] model %d/%d (%s)...", i+1, len(tlModels), tl.Key))
+		// v1 calls without a label here — keep the request identical.
+		out, ok := d.Caller.CallModel(ctx, providers.CallRequest{
+			ModelKey: tl.Key, ModelID: tl.Model.ID, BaseURL: tl.Provider.BaseURL,
+			EnvKey: tl.Provider.EnvKey, MaxTokens: 8192,
+			Messages: []providers.Message{{Role: "system", Content: system}, {Role: "user", Content: user}},
+		})
+		if ok {
+			findings = append(findings, out)
+		} else {
+			d.Log(fmt.Sprintf("[TL panel] %s failed, skipping", tl.Key))
+		}
+	}
+	return findings, nil
+}
+
+// SynthesizePlan ports plan.py::synthesize_plan (blocks 11-12): the
+// synthesizer merges deliberation + panel findings into the final three-part
+// brief; on failure it degrades to the haft compare output (v1's
+// orchestrator-fallback pattern) rather than aborting the plan.
+func SynthesizePlan(ctx context.Context, d Deps, taskText, synthesis string, findings []string, synth providers.Resolved) (adr, planText, acceptance string, err error) {
+	findingsCombined := "(no panel findings)"
+	if len(findings) > 0 {
+		findingsCombined = strings.Join(findings, "\n\n---\n\n")
+	}
+	system, err := renderBlock(11, nil)
+	if err != nil {
+		return "", "", "", err
+	}
+	user, err := renderBlock(12, map[string]string{
+		"task_text": taskText, "synthesis": synthesis, "findings_combined": findingsCombined,
+	})
+	if err != nil {
+		return "", "", "", err
+	}
+	out, ok := d.Caller.CallModel(ctx, providers.CallRequest{
+		ModelKey: synth.Key, ModelID: synth.Model.ID, BaseURL: synth.Provider.BaseURL,
+		EnvKey: synth.Provider.EnvKey, MaxTokens: 16384, Timeout: 420 * time.Second,
+		Label:    "synthesize-plan",
+		Messages: []providers.Message{{Role: "system", Content: system}, {Role: "user", Content: user}},
+	})
+	if !ok {
+		d.Log("[synthesize-plan] failed; falling back to haft compare output for this task.")
+		a, p, c, _ := SplitSections(synthesis)
+		if a == "" {
+			a = "(synthesis unavailable; see plan)"
+		}
+		if p == "" {
+			p = synthesis
+		}
+		if c == "" {
+			c = "(synthesis unavailable; see plan)"
+		}
+		return a, p, c, nil
+	}
+
+	a, p, c, found := SplitSections(out)
+	if !found {
+		return "(see PLAN)", out, "(see PLAN)", nil
+	}
+	if p == "" {
+		p = out
+	}
+	if a == "" {
+		a = "(no ADR section emitted)"
+	}
+	if c == "" {
+		c = "(no ACCEPTANCE section emitted)"
+	}
+	return a, p, c, nil
+}
+
 var sectionRe = regexp.MustCompile(`(?im)^##\s+(ADR|PLAN|ACCEPTANCE)\s*$`)
 
 // SplitSections ports plan.py::_split_sections.
@@ -294,13 +383,29 @@ type SoloResult struct {
 	Manifest store.Manifest `json:"manifest"`
 }
 
-// Solo ports plan_feature's no_fusion path, minus gitops (agent owns git,
-// ADR-004): init slug, decompose, scope.md, per task haft → split sections →
-// task artifacts, manifest. baseBranch/branch come from the agent's git_state
-// attestation; requestMD is request text + attestation audit block (ADR-011).
+// Solo runs plan_feature's no_fusion path (decompose + haft only).
 func Solo(ctx context.Context, d Deps, progress Progress,
 	projectID, slug, requestText, requestMD, codeContext, pipeline, baseBranch, branch string,
 	intent store.Intent, force bool) (SoloResult, error) {
+	return feature(ctx, d, progress, projectID, slug, requestText, requestMD, codeContext, pipeline, baseBranch, branch, intent, true, force)
+}
+
+// Full runs plan_feature's fusion path: haft deliberation, then the TL panel
+// and synthesizer per task (v1 default).
+func Full(ctx context.Context, d Deps, progress Progress,
+	projectID, slug, requestText, requestMD, codeContext, pipeline, baseBranch, branch string,
+	intent store.Intent, force bool) (SoloResult, error) {
+	return feature(ctx, d, progress, projectID, slug, requestText, requestMD, codeContext, pipeline, baseBranch, branch, intent, false, force)
+}
+
+// feature ports plan.py::plan_feature, minus gitops (agent owns git,
+// ADR-004): init slug, decompose, scope.md, per task haft → (panel +
+// synthesize | split) → task artifacts, manifest. baseBranch/branch come from
+// the agent's git_state attestation; requestMD is request text + attestation
+// audit block (ADR-011).
+func feature(ctx context.Context, d Deps, progress Progress,
+	projectID, slug, requestText, requestMD, codeContext, pipeline, baseBranch, branch string,
+	intent store.Intent, noFusion, force bool) (SoloResult, error) {
 
 	if progress == nil {
 		progress = func(string) {}
@@ -334,6 +439,22 @@ func Solo(ctx context.Context, d Deps, progress Progress,
 	}
 	primary := tlModels[0]
 
+	// Synthesizer resolution sits after decompose, exactly where v1 puts it
+	// (a misconfigured pipeline costs the decompose call but never the
+	// per-task deliberation spend).
+	var synth providers.Resolved
+	if !noFusion {
+		pipe := d.Cfg.Pipelines[pipeline]
+		synthPanel, ok := pipe["synthesizer"]
+		if !ok || len(synthPanel.Models) == 0 {
+			return SoloResult{}, fmt.Errorf("pipeline '%s' has no synthesizer; pass no_fusion=true", pipeline)
+		}
+		synth, err = d.Cfg.ResolveNamed(synthPanel.Models[0])
+		if err != nil {
+			return SoloResult{}, err
+		}
+	}
+
 	var manifestTasks []store.Task
 	for i, task := range tasks {
 		taskID := fmt.Sprintf("%02d", i+1)
@@ -346,15 +467,31 @@ func Solo(ctx context.Context, d Deps, progress Progress,
 			return SoloResult{}, fmt.Errorf("task %s: %w", taskID, err)
 		}
 
-		adr, planText, acceptance, _ := SplitSections(synthesis)
-		if planText == "" {
-			planText = synthesis
-		}
-		if adr == "" {
-			adr = "(no fusion; see plan)"
-		}
-		if acceptance == "" {
-			acceptance = "(no fusion; see plan)"
+		var adr, planText, acceptance string
+		if noFusion {
+			adr, planText, acceptance, _ = SplitSections(synthesis)
+			if planText == "" {
+				planText = synthesis
+			}
+			if adr == "" {
+				adr = "(no fusion; see plan)"
+			}
+			if acceptance == "" {
+				acceptance = "(no fusion; see plan)"
+			}
+		} else {
+			progress(fmt.Sprintf("task %d/%d (%s): TL panel", i+1, len(tasks), task.Slug))
+			d.Log(fmt.Sprintf("[plan] task %s: TL panel...", taskID))
+			findings, perr := RunTLPanel(ctx, d, taskText, synthesis, tlModels)
+			if perr != nil {
+				return SoloResult{}, fmt.Errorf("task %s: %w", taskID, perr)
+			}
+			progress(fmt.Sprintf("task %d/%d (%s): synthesizing final plan", i+1, len(tasks), task.Slug))
+			d.Log(fmt.Sprintf("[plan] task %s: synthesizing final plan...", taskID))
+			adr, planText, acceptance, err = SynthesizePlan(ctx, d, taskText, synthesis, findings, synth)
+			if err != nil {
+				return SoloResult{}, fmt.Errorf("task %s: %w", taskID, err)
+			}
 		}
 
 		if err := d.Store.WriteTaskArtifacts(projectID, slug, taskID, task.Slug, adr, planText, acceptance, codeContext); err != nil {

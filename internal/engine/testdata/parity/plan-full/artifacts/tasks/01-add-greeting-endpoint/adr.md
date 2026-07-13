@@ -1,0 +1,17 @@
+- **Approach:** 2 – extractor utility + dedicated handler (`auth.UserFromContext` in `auth/context.go` and `handlers/greeting.go`). This centralises user extraction, avoids duplication, and isolates the greeting feature.
+- **Key decisions:**
+  - **User extraction:** `auth.UserFromContext(ctx)` returns a copy of the authenticated user pointer or an error; it does **not** normalise a missing/empty name—that is a handler concern.
+  - **Name validation:** The handler trims whitespace from `u.Name`; if the result is empty it returns `400 Bad Request` (`{"error":"user name not set"}`). Valid names are sanitised (control characters stripped, max length 100 runes) and used to build the greeting.
+  - **Auth enforcement:** The route is placed inside the existing auth middleware group; the handler only trusts the context value set by that middleware.
+  - **Error handling:**  
+    - `auth.ErrUnauthenticated` → `401 Unauthorized` with `WWW-Authenticate: Bearer realm="api"` header.  
+    - Other errors from `UserFromContext` (e.g., context corruption) → `500 Internal Server Error`.  
+    - The error envelope must match the project’s shared `writeError` shape (verified before coding).
+  - **Response headers:** Every response includes `Cache-Control: no-store, private`, `Vary: Authorization`, `X-Content-Type-Options: nosniff`.
+  - **Logging:** Structured log of the request with `user_id` only (never the greeting message or user name).
+  - **Rate limiting:** Not part of this feature; assumed to be applied at a higher level (global route group or infrastructure). A comment is added to inherit any existing limiter.
+- **Risks:**
+  - If the auth middleware later changes the context key or user type, the helper will panic or return errors; mitigated by using this single public accessor across all handlers and adding unit tests for it.
+  - The `WWW-Authenticate` header must already be set by the auth middleware on 401; if not, we add it to the middleware or provide a wrapper in the handler.
+  - The security headers may be redundant if a higher-level middleware already sets them; we add them explicitly in the handler to guarantee local correctness.
+  - The handler does not start DB transactions; future extensions must add read‑only transactions carefully.

@@ -35,6 +35,9 @@ type recordedCall struct {
 	MaxTokens int                 `json:"max_tokens"`
 	Timeout   float64             `json:"timeout"` // seconds, v1 int
 	Content   string              `json:"content"`
+	// Failed marks a recorder-injected failure (degradation-path fixtures):
+	// the replay verifies the request, then reports the call as failed.
+	Failed bool `json:"failed,omitempty"`
 }
 
 // replayCaller asserts request parity per call and plays the recorded response.
@@ -79,6 +82,9 @@ func (rc *replayCaller) CallModel(_ context.Context, req providers.CallRequest) 
 			rc.t.Fatalf("call %d message %d (%s): content diverges from v1:\n--- go ---\n%s\n--- v1 ---\n%s",
 				rc.next, i, req.Messages[i].Role, req.Messages[i].Content, rec.Messages[i].Content)
 		}
+	}
+	if rec.Failed {
+		return "", false
 	}
 	return rec.Content, true
 }
@@ -165,19 +171,31 @@ func TestParityHexcolor(t *testing.T) {
 	fmt.Println("parity: 5-call request parity + 3-artifact byte parity vs v1 recording")
 }
 
-// TestParityPlanSolo replays the recorded v1 plan_feature(no_fusion=True) run
-// through the Go plan-solo engine. The manifest is compared modulo the
-// additive v2 `intent` field (ADR-011 — documented addition; v2 adds fields,
-// never changes existing ones); every other artifact must be byte-identical.
-func TestParityPlanSolo(t *testing.T) {
-	dir := filepath.Join("testdata", "parity", "plan-solo")
+// TestParityPlanSolo / PlanFull / PlanFullDegraded replay recorded v1
+// plan_feature runs through the Go plan engine. The manifest is compared
+// modulo the additive v2 `intent` field (ADR-011 — documented addition; v2
+// adds fields, never changes existing ones); every other artifact must be
+// byte-identical. The degraded case replays a recorder-injected synthesizer
+// failure (ADR-010's injected-failure degradation path).
+func TestParityPlanSolo(t *testing.T) { runPlanParity(t, "plan-solo", plan.Solo) }
+
+func TestParityPlanFull(t *testing.T) { runPlanParity(t, "plan-full", plan.Full) }
+
+func TestParityPlanFullDegraded(t *testing.T) { runPlanParity(t, "plan-full-degraded", plan.Full) }
+
+type planFn func(context.Context, plan.Deps, plan.Progress,
+	string, string, string, string, string, string, string, string,
+	store.Intent, bool) (plan.SoloResult, error)
+
+func runPlanParity(t *testing.T, caseName string, run planFn) {
+	dir := filepath.Join("testdata", "parity", caseName)
 	request := readFile(t, filepath.Join(dir, "request.txt"))
 	codeContext := readFile(t, filepath.Join(dir, "context.txt"))
 	slug := strings.TrimSpace(readFile(t, filepath.Join(dir, "slug.txt")))
 
 	f, err := os.Open(filepath.Join(dir, "recording.jsonl"))
 	if err != nil {
-		t.Fatalf("no recording — run scripts/record-v1.py … plan-solo first: %v", err)
+		t.Fatalf("no recording — run scripts/record-v1.py … %s first: %v", caseName, err)
 	}
 	defer f.Close()
 	rc := &replayCaller{t: t}
@@ -204,11 +222,11 @@ func TestParityPlanSolo(t *testing.T) {
 	intent := store.Intent{Tier: "fix", Ref: "parity", ApprovedBy: "parity", DraftedBy: "human"}
 	// requestMD = plain request text: v1 init_slug wrote exactly that, and
 	// this test proves engine parity (the attestation block is tool-layer).
-	if _, err := plan.Solo(context.Background(),
+	if _, err := run(context.Background(),
 		plan.Deps{Store: st, Cfg: cfg, Caller: rc, Log: func(s string) { t.Log(s) }},
 		nil, projectID, slug, request, request, codeContext, "default",
 		"main", "feature/"+slug, intent, false); err != nil {
-		t.Fatalf("plan.Solo: %v", err)
+		t.Fatalf("plan %s: %v", caseName, err)
 	}
 
 	if rc.next != len(rc.calls) {
@@ -255,7 +273,7 @@ func TestParityPlanSolo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("parity: plan-solo %d-call request parity + artifact tree byte parity vs v1 recording\n", len(rc.calls))
+	fmt.Printf("parity: %s %d-call request parity + artifact tree byte parity vs v1 recording\n", caseName, len(rc.calls))
 }
 
 func readFile(t *testing.T, path string) string {

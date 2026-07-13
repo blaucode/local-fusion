@@ -11,5 +11,5 @@
 **Status (M3, in progress):** both transports (Streamable HTTP + stdio), health
 checking, token auth, the async job engine, the job tools (`lf_job`, `lf_cancel`,
 `lf_status`), the quality gate (`lf_review`, `lf_judge` — dual-judge + deterministic
-test gate), and async planning (`lf_plan`, currently plan-solo). Still to come:
-plan-full (TL panel + synthesizer) and `lf_coder_fusion`.
+test gate), and async planning (`lf_plan` — full deliberation with TL panel +
+synthesizer, or `no_fusion` for the solo path). Still to come: `lf_coder_fusion`.
