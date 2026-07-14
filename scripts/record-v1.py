@@ -21,9 +21,22 @@ Modes:
         degradation path (ADR-010) with a {"failed": true} sentinel line.
     coder-solo — fixture-dir must contain plan.md, acceptance.md, context.txt,
         slug.txt; seeds a planned task and runs coder_fusion_task(solo=True).
+    coder-fusion — same inputs; the full two-coder + evaluator + lead path.
+        The two coder calls run in parallel threads, so they land in the
+        recording in completion order; the v2 replay matches them
+        order-tolerantly.
+    coder-fusion-degraded — coder-fusion with coder-b failed by the recorder
+        harness (both attempts recorded as {"failed": true} sentinels):
+        exercises the survivor degradation path deterministically.
+
+The recorder wraps call_model so recording.jsonl is a COMPLETE transcript:
+v1's internal LF_RECORD hook writes successes; the wrapper writes a
+{"failed": true} sentinel for any call that returns None (a natural timeout,
+or an injected failure). Without this a naturally-failed call leaves no trace
+and the replay cannot reproduce v1's degradation. v1 source is untouched.
 
 Produces in fixture-dir: recording.jsonl (one line per model call: request
-sans key + response content) and artifacts/ (the v1-written slug tree).
+sans key + response content, or a failed sentinel) and artifacts/.
 
 Requires the LF_RECORD hook in v1 fusion/common.py::call_model (owner-approved
 amendment, 2026-07-12). Live provider calls — needs v1 config/providers.env.
@@ -47,12 +60,15 @@ def main():
 
     if mode in ("plan-solo", "plan-full", "plan-full-degraded"):
         return record_plan(v1, fixtures, mode)
-    if mode == "coder-solo":
-        return record_coder_solo(v1, fixtures)
+    if mode in ("coder-solo", "coder-fusion", "coder-fusion-degraded"):
+        return record_coder(v1, fixtures, mode)
     return record_review_judge(v1, fixtures)
 
 
-def record_coder_solo(v1, fixtures):
+def record_coder(v1, fixtures, mode):
+    import threading
+
+    from fusion import common as fusion_common
     from fusion.common import load_config, load_env
     from fusion.artifacts import init_slug, read_manifest, write_manifest, write_task_artifacts
     from fusion import coder_fusion as fusion_coder
@@ -70,17 +86,48 @@ def record_coder_solo(v1, fixtures):
     cfg = load_config(root=v1)
     env = load_env(root=v1)
 
+    # Complete-transcript wrapper: v1's LF_RECORD hook writes successes; this
+    # writes a failed sentinel for any None return (natural or injected). The
+    # coders run in parallel threads, so appends are locked. v1 is untouched.
+    real_call_model = fusion_common.call_model
+    lock = threading.Lock()
+
+    def record_failure(model_cfg, provider_cfg, messages, max_tokens, timeout):
+        with lock, open(recording, "a") as f:
+            f.write(json.dumps({
+                "model_id": model_cfg["id"],
+                "base_url": provider_cfg["base_url"].rstrip("/"),
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "timeout": timeout,
+                "failed": True,
+            }) + "\n")
+
+    def wrapped_call_model(model_cfg, provider_cfg, env_, messages,
+                           max_tokens=8192, label=None, timeout=190):
+        if mode == "coder-fusion-degraded" and label and label.startswith("coder-b"):
+            record_failure(model_cfg, provider_cfg, messages, max_tokens, timeout)
+            return None
+        out = real_call_model(model_cfg, provider_cfg, env_, messages,
+                              max_tokens=max_tokens, label=label, timeout=timeout)
+        if out is None:
+            record_failure(model_cfg, provider_cfg, messages, max_tokens, timeout)
+        return out
+
+    fusion_coder.call_model = wrapped_call_model
+
     with tempfile.TemporaryDirectory() as tmp:
         proj = Path(tmp) / "project"
         proj.mkdir()
-        init_slug(str(proj), slug, "recorded coder-solo parity case", "main", f"feature/{slug}")
+        init_slug(str(proj), slug, "recorded coder parity case", "main", f"feature/{slug}")
         manifest = read_manifest(str(proj), slug)
         manifest["tasks"] = [{"id": "01", "slug": "impl", "title": "impl",
                               "deps": [], "status": "planned", "scores": None}]
         write_manifest(str(proj), slug, manifest)
         write_task_artifacts(str(proj), slug, "01", "impl", "", plan_md, acceptance, context)
 
-        fusion_coder.coder_fusion_task(str(proj), slug, "01", "impl", context, cfg, env, solo=True)
+        fusion_coder.coder_fusion_task(str(proj), slug, "01", "impl", context, cfg, env,
+                                       solo=(mode == "coder-solo"))
 
         artifacts = fixtures / "artifacts"
         if artifacts.exists():

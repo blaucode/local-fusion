@@ -1,0 +1,1 @@
+Small Go net/http service; handlers in handlers.go; table-driven tests.
