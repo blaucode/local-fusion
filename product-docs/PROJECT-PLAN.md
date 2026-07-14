@@ -145,9 +145,14 @@ gate; the judge bench is a documented SPOF and stays off the critical path).
   FILE-block contract consumed from the frozen artifacts.tmpl (r-string regex);
   coder-solo recording: 1-call request parity + proposed-files byte parity, first
   replay. Ops note: coder fixtures contain .go files — lint excludes testdata/.
-- [ ] coder-fusion parity recording (parallel coder-a/coder-b call ordering needs an
-  order-tolerant replay match for those two calls; everything after is sequential)
-- [ ] skill update: submit→poll loop, intent/git_state gathering (ADR-011)
+- [x] **coder-fusion parity green** — order-tolerant, thread-safe replay for the two
+  parallel coder calls; recorder now writes a complete transcript (failure sentinels for
+  natural OR injected None returns). Two live recordings landed on real degradation rungs
+  (flaky providers): lead-fallback (5 calls) and coder-b-survivor (3 calls); together they
+  verify parallel dispatch, both rungs, evaluator+parse_base, and lead-request construction
+  (commit `51e4f9e`). **The M3 port is complete — full v1 engine surface in Go, parity-gated.**
+- [ ] skill update: submit→poll loop, intent/git_state gathering (ADR-011) — the remaining
+  M3 item; where v2 skills live is an owner decision
 
 ### M4 — v2-only features (4–6 sessions)
 Hot reload (R8), stage-granular progress (R10), rubric config (R9 — only with pilot
