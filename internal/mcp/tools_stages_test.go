@@ -50,7 +50,7 @@ pipelines:
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := providers.Load(cfgPath)
+	cfg, err := providers.NewHolder(cfgPath)
 	if err != nil {
 		t.Fatal(err)
 	}

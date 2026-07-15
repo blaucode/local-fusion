@@ -16,11 +16,19 @@ import (
 // EngineDeps back the synchronous stage tools (lf_review, lf_judge).
 type EngineDeps struct {
 	Store  *store.Store
-	Cfg    *providers.Config // nil until providers.yaml is supplied
+	Cfg    *providers.Holder // hot-reloadable; nil (or Load()==nil) until providers.yaml loads
 	Caller providers.Caller
 	Log    func(string)
 	User   string // metrics build-2.0 attribution
 	Ver    string
+}
+
+// config returns the current config snapshot, or nil if unavailable.
+func (d EngineDeps) config() *providers.Config {
+	if d.Cfg == nil {
+		return nil
+	}
+	return d.Cfg.Load()
 }
 
 const noConfigMsg = "providers.yaml not loaded — put your v1 config at the --config path (see docs/configuration.md#providers)"
@@ -90,7 +98,8 @@ func registerLfReview(server *sdk.Server, d EngineDeps) {
 			"Synchronous (1-2 minutes). Returns findings with severities and the review.md " +
 			"artifact. If planning has not run for the task, pass `brief`. See docs/tools.md#lf_review.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in lfReviewIn) (*sdk.CallToolResult, any, error) {
-		if d.Cfg == nil {
+		cfg := d.config()
+		if cfg == nil {
 			return nil, lfReviewOut{OK: false, Error: noConfigMsg}, nil
 		}
 		if in.Brief != "" {
@@ -98,7 +107,7 @@ func registerLfReview(server *sdk.Server, d EngineDeps) {
 				return nil, lfReviewOut{OK: false, Error: err.Error()}, nil
 			}
 		}
-		res, err := review.Task(ctx, review.Deps{Store: d.Store, Cfg: d.Cfg, Caller: d.Caller, Log: d.Log},
+		res, err := review.Task(ctx, review.Deps{Store: d.Store, Cfg: cfg, Caller: d.Caller, Log: d.Log},
 			in.ProjectID, in.Slug, in.TaskID, in.TaskSlug, in.ChangedFiles, in.Pipeline)
 		if err != nil {
 			return nil, lfReviewOut{OK: false, Error: err.Error()}, nil
@@ -183,7 +192,8 @@ func registerLfJudge(server *sdk.Server, d EngineDeps) {
 			"instead of judging again (ADR-007) — stop and get a person. " +
 			"Synchronous (up to ~7 min with reasoning judges). See docs/tools.md#lf_judge.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in lfJudgeIn) (*sdk.CallToolResult, any, error) {
-		if d.Cfg == nil {
+		cfg := d.config()
+		if cfg == nil {
 			return nil, lfJudgeOut{OK: false, Error: noConfigMsg}, nil
 		}
 		if in.Brief != "" {
@@ -201,7 +211,7 @@ func registerLfJudge(server *sdk.Server, d EngineDeps) {
 					"Stop the fix→re-judge loop and get a person to look.", in.TaskID, prior)}, nil
 		}
 		agg, err := judge.Task(ctx,
-			judge.Deps{Store: d.Store, Cfg: d.Cfg, Caller: d.Caller, Log: d.Log, User: d.User, ServerVersion: d.Ver},
+			judge.Deps{Store: d.Store, Cfg: cfg, Caller: d.Caller, Log: d.Log, User: d.User, ServerVersion: d.Ver},
 			in.ProjectID, in.Slug, in.TaskID, in.TaskSlug, in.ChangedFiles, in.Pipeline, in.TaskLabel,
 			anyOrNil(in.TestReport))
 		if err != nil {

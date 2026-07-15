@@ -64,14 +64,13 @@ func serve(args []string) error {
 	runner := jobs.NewRunner(*workers, st, slog.Default())
 	defer runner.Close()
 
-	// providers.yaml is optional at startup: without it the stage tools
-	// answer with a structured pointer to the docs instead of vanishing.
-	var cfg *providers.Config
-	if loaded, err := providers.Load(*configPath); err == nil {
-		cfg = loaded
-		slog.Info("providers config loaded", "path", *configPath, "models", len(cfg.Models))
+	// providers.yaml is optional at startup and hot-reloadable (lf_reload):
+	// without it the stage tools answer with a docs pointer instead of vanishing.
+	cfgHolder, err := providers.NewHolder(*configPath)
+	if err != nil {
+		slog.Warn("providers config not loaded — lf_* engine tools disabled until lf_reload", "path", *configPath, "err", err)
 	} else {
-		slog.Warn("providers config not loaded — lf_review/lf_judge disabled", "path", *configPath, "err", err)
+		slog.Info("providers config loaded", "path", *configPath, "models", len(cfgHolder.Load().Models))
 	}
 	user := os.Getenv("LF_USER")
 	if user == "" {
@@ -80,7 +79,7 @@ func serve(args []string) error {
 
 	providerClient := &providers.Client{Env: os.Getenv, Log: func(m string) { slog.Info(m) }}
 	engineDeps := mcp.EngineDeps{
-		Store: st, Cfg: cfg,
+		Store: st, Cfg: cfgHolder,
 		Caller: providerClient,
 		Log:    func(m string) { slog.Info(m) },
 		User:   user, Ver: version.Version,
@@ -90,6 +89,7 @@ func serve(args []string) error {
 	mcp.RegisterStageTools(server, engineDeps)
 	mcp.RegisterPlanTool(server, mcp.PlanDeps{Engine: engineDeps, Runner: runner})
 	mcp.RegisterCoderTool(server, mcp.PlanDeps{Engine: engineDeps, Runner: runner})
+	mcp.RegisterReloadTool(server, engineDeps)
 
 	if *stdio {
 		slog.Info("mcp stdio serving", "version", version.String())

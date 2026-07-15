@@ -113,7 +113,8 @@ func RegisterPlanTool(server *sdk.Server, d PlanDeps) {
 			"Idempotent: resubmitting identical work returns the running job. " +
 			"See docs/tools.md#lf_plan.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in lfPlanIn) (*sdk.CallToolResult, any, error) {
-		if d.Engine.Cfg == nil {
+		cfg := d.Engine.config()
+		if cfg == nil {
 			return nil, lfPlanOut{OK: false, Error: noConfigMsg}, nil
 		}
 		if err := validateIntent(d.Engine.Store, in.Intent); err != nil {
@@ -161,7 +162,7 @@ func RegisterPlanTool(server *sdk.Server, d PlanDeps) {
 					run = plan.Solo
 				}
 				res, err := run(jobCtx,
-					plan.Deps{Store: engine.Store, Cfg: engine.Cfg, Caller: caller, Log: engine.Log},
+					plan.Deps{Store: engine.Store, Cfg: cfg, Caller: caller, Log: engine.Log},
 					jc.Progress,
 					in.ProjectID, in.Slug, in.Request, requestMD(in.Request, git, *in.Intent),
 					in.Context, in.Pipeline, git.BaseBranch, git.Branch, intent, in.Force)

@@ -34,7 +34,8 @@ func RegisterCoderTool(server *sdk.Server, d PlanDeps) {
 			"applies them to the repo (the server never touches your filesystem). Requires the " +
 			"task's plan.md and acceptance.md (run lf_plan first). See docs/tools.md#lf_coder_fusion.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in lfCoderFusionIn) (*sdk.CallToolResult, any, error) {
-		if d.Engine.Cfg == nil {
+		cfg := d.Engine.config()
+		if cfg == nil {
 			return nil, lfPlanOut{OK: false, Error: noConfigMsg}, nil
 		}
 
@@ -61,7 +62,7 @@ func RegisterCoderTool(server *sdk.Server, d PlanDeps) {
 				caller := &budgetedCaller{inner: engine.Caller, jc: jc}
 				jc.Progress("task " + in.TaskID + ": coding")
 				res, err := coder.Task(jobCtx,
-					coder.Deps{Store: engine.Store, Cfg: engine.Cfg, Caller: caller, Log: engine.Log,
+					coder.Deps{Store: engine.Store, Cfg: cfg, Caller: caller, Log: engine.Log,
 						User: engine.User, ServerVersion: engine.Ver},
 					in.ProjectID, in.Slug, in.TaskID, in.TaskSlug, in.Context, in.Pipeline, in.Solo)
 				if err != nil {

@@ -150,3 +150,18 @@ its `job_id`s again.
 **Returns:** `{ok, manifest?, jobs: [JobView...], providers?}` — `manifest` is absent
 until planning has run for the slug (not an error). `providers` is a per-provider
 observability snapshot since server start: `[{base_url, calls, errors, avg_latency_ms}]`.
+
+## lf_reload
+
+Hot-reload `providers.yaml` (models, pipelines, enable/disable a provider) without
+restarting the server — v1 required a restart after any config change.
+
+**Args:** none.
+
+**Returns:** `{ok, path, models, pipelines, providers}` on success. A config that fails to
+parse is **rejected** and the previously loaded one is kept (`{ok: false, error, note}`) —
+a typo never takes the gate down. In-flight jobs keep the config snapshot they started
+with; new submissions use the reloaded config.
+
+> API keys arrive via the container's environment and are read per call; changing a key
+> still needs a container restart (a runtime constraint, not a config-file one).

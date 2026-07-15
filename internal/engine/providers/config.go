@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"sync/atomic"
 
 	"gopkg.in/yaml.v3"
 )
@@ -66,6 +67,43 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("providers.yaml: %w", err)
 	}
 	return &cfg, nil
+}
+
+// Holder is a hot-reloadable config wrapper (R8): jobs read a consistent
+// snapshot via Load(); lf_reload swaps it atomically via Reload(). A failed
+// reload keeps the previous snapshot — a bad edit never takes the gate down.
+type Holder struct {
+	path string
+	cfg  atomic.Pointer[Config]
+}
+
+// NewHolder loads path once; a load error is returned but the holder is still
+// usable (Load() returns nil until a successful Reload).
+func NewHolder(path string) (*Holder, error) {
+	h := &Holder{path: path}
+	cfg, err := Load(path)
+	if err != nil {
+		return h, err
+	}
+	h.cfg.Store(cfg)
+	return h, nil
+}
+
+// Load returns the current config snapshot (nil if none has loaded).
+func (h *Holder) Load() *Config { return h.cfg.Load() }
+
+// Path is the providers.yaml path this holder reloads from.
+func (h *Holder) Path() string { return h.path }
+
+// Reload re-reads and validates providers.yaml, swapping it in on success.
+// On failure the previous snapshot is retained and the error returned.
+func (h *Holder) Reload() (*Config, error) {
+	cfg, err := Load(h.path)
+	if err != nil {
+		return h.cfg.Load(), err
+	}
+	h.cfg.Store(cfg)
+	return cfg, nil
 }
 
 // Resolved is one usable (model key, model, provider) triple.
