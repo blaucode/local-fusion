@@ -211,6 +211,18 @@ func TestClientCallModelContract(t *testing.T) {
 	if _, ok := c.CallModel(context.Background(), req); ok {
 		t.Fatal("timeout must fail")
 	}
+
+	// Observability: per-base_url counters. The ts base_url saw 5 calls
+	// (ok/model, empty/content, api/error, malformed/resp, garbage), 3 errors.
+	var tsStat *ProviderStat
+	for i := range c.ProviderStats() {
+		if s := c.ProviderStats()[i]; s.BaseURL == ts.URL+"/v1" {
+			tsStat = &s
+		}
+	}
+	if tsStat == nil || tsStat.Calls != 5 || tsStat.Errors != 3 {
+		t.Fatalf("ts provider stats = %+v", tsStat)
+	}
 }
 
 func readAll(r *http.Request) (string, error) {

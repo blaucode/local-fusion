@@ -105,9 +105,14 @@ The quality gate: dual-judge scoring plus the deterministic test gate. Synchrono
 the test run you just executed. Malformed reports are rejected outright — a gate that
 silently ignores bad evidence is worse than no gate.
 
-**Returns:** `{ok, verdict, avg, req, sec, maint, gate_reason?, judges[], verdict_md}`.
-`verdict` is `PASS` only when `exit_code == 0` **and** the score average is ≥ 8.0.
-Every run appends a `metrics.jsonl` record (schema `build-2.0`).
+**Returns:** `{ok, verdict, avg, req, sec, maint, gate_reason?, judges[], verdict_md,
+attempt}`. `verdict` is `PASS` only when `exit_code == 0` **and** the score average is
+≥ 8.0. Every run appends a `metrics.jsonl` record (schema `build-2.0`).
+
+**Judge-retry ledger (ADR-007):** the manifest tracks judge attempts per task. After two
+rounds on the same task, a third call returns `verdict: "escalate_to_human"` with
+`escalated: true` and **runs no judges** — v1's "re-judge once, then stop" convention is
+now enforced. Stop the fix→re-judge loop and get a person.
 
 ## lf_job
 
@@ -142,5 +147,6 @@ its `job_id`s again.
 
 **Args:** `project_id` (opaque; use the repo name), `slug`.
 
-**Returns:** `{ok, manifest?, jobs: [JobView...]}` — `manifest` is absent until planning
-has run for the slug; that is not an error.
+**Returns:** `{ok, manifest?, jobs: [JobView...], providers?}` — `manifest` is absent
+until planning has run for the slug (not an error). `providers` is a per-provider
+observability snapshot since server start: `[{base_url, calls, errors, avg_latency_ms}]`.

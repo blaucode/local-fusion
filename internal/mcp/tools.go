@@ -8,14 +8,22 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"local-fusion/internal/engine/providers"
 	"local-fusion/internal/jobs"
 	"local-fusion/internal/store"
 )
+
+// ProviderStatser exposes per-provider observability counters (the live
+// providers.Client implements it; nil in tests that don't exercise providers).
+type ProviderStatser interface {
+	ProviderStats() []providers.ProviderStat
+}
 
 // Deps are the backing components for the lf_* tool surface.
 type Deps struct {
 	Runner *jobs.Runner
 	Store  *store.Store
+	Stats  ProviderStatser
 }
 
 // JobView is the pollable job shape returned by lf_job and embedded in
@@ -146,10 +154,11 @@ type lfStatusIn struct {
 }
 
 type lfStatusOut struct {
-	OK       bool      `json:"ok"`
-	Error    string    `json:"error,omitempty"`
-	Manifest any       `json:"manifest,omitempty"`
-	Jobs     []JobView `json:"jobs"`
+	OK        bool                     `json:"ok"`
+	Error     string                   `json:"error,omitempty"`
+	Manifest  any                      `json:"manifest,omitempty"`
+	Jobs      []JobView                `json:"jobs"`
+	Providers []providers.ProviderStat `json:"providers,omitempty"`
 }
 
 func registerLfStatus(server *sdk.Server, deps Deps) {
@@ -184,6 +193,9 @@ func registerLfStatus(server *sdk.Server, deps Deps) {
 		sort.Slice(out.Jobs, func(a, b int) bool {
 			return out.Jobs[a].SubmittedAt.Before(out.Jobs[b].SubmittedAt)
 		})
+		if deps.Stats != nil {
+			out.Providers = deps.Stats.ProviderStats()
+		}
 		return nil, out, nil
 	})
 }

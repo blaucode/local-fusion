@@ -10,6 +10,7 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"local-fusion/internal/engine/providers"
 	"local-fusion/internal/jobs"
 	"local-fusion/internal/store"
 )
@@ -32,7 +33,7 @@ func newHarness(t *testing.T) *harness {
 	t.Cleanup(runner.Close)
 
 	srv := NewServer()
-	RegisterTools(srv, Deps{Runner: runner, Store: st})
+	RegisterTools(srv, Deps{Runner: runner, Store: st, Stats: fakeStats{}})
 	ts := httptest.NewServer(Handler(srv, HTTPConfig{}))
 	t.Cleanup(ts.Close)
 
@@ -46,6 +47,15 @@ func newHarness(t *testing.T) *harness {
 	}
 	t.Cleanup(func() { session.Close() })
 	return &harness{store: st, runner: runner, session: session}
+}
+
+// fakeStats is a canned ProviderStatser for lf_status observability tests.
+type fakeStats struct{}
+
+func (fakeStats) ProviderStats() []providers.ProviderStat {
+	return []providers.ProviderStat{
+		{BaseURL: "https://api.featherless.ai/v1", Calls: 7, Errors: 1, AvgLatencyMs: 812.5},
+	}
 }
 
 func (h *harness) call(t *testing.T, tool string, args map[string]any) map[string]any {
@@ -173,6 +183,11 @@ func TestLfStatusManifestJobsAndRestartRediscovery(t *testing.T) {
 	}
 	if len(out["jobs"].([]any)) != 1 {
 		t.Fatalf("jobs = %v", out["jobs"])
+	}
+	// Observability counters surface (fakeStats).
+	provs := out["providers"].([]any)
+	if len(provs) != 1 || provs[0].(map[string]any)["calls"] != float64(7) || provs[0].(map[string]any)["errors"] != float64(1) {
+		t.Fatalf("providers = %v", out["providers"])
 	}
 
 	// Restart rediscovery: a fresh runner (empty memory) still lists the job
