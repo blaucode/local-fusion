@@ -159,6 +159,27 @@ Hot reload (R8), stage-granular progress (R10), rubric config (R9 — only with 
 feedback in hand), provider `anthropic` client if not already exercised.
 **Exit gate:** PRD success-criteria checklist §6 leading indicators measurable.
 
+**M4 progress (2026-07-15, post-M3 hardening batch):**
+- [x] **Hot reload (R8)** — `lf_reload` + swappable config holder (P3, `3bfabdc`).
+- [x] **Baseline observability** — per-provider counters in `lf_status` (P4, `8e3f6d2`);
+  closes the M2 "baseline service observability" item.
+- [x] **Judge-retry ledger / `escalate_to_human`** (ADR-007) — was an unshipped M2 gap;
+  built in P1 (`2eb0988`).
+- [ ] **Lessons/Reflexion loop (§6)** — **needs design before code, not built.** Reasons:
+  (a) injecting lessons into the frozen haft/synthesizer prompts is an ADR-008 prompt-
+  contract decision; (b) the distiller is a design fork (model-based vs heuristic;
+  on-demand vs scheduled — pairs with the `internal/sched` cron); (c) its acceptance
+  criterion (the T14/T15 non-integer-JSON blind spot surfacing in the *next* plan) needs
+  real pilot metrics. Plan: an ADR-008 amendment for injection + a distiller design pass,
+  then build lessons store → `lf_lessons` → parity-safe injection (append-only when a
+  stack's lessons are present, so the no-lessons parity path is unchanged).
+- [ ] stage-granular progress polish (R10) — progress strings exist; deeper granularity is
+  incremental.
+- [ ] `anthropic` provider client — deferred (no need exercised yet).
+- [ ] rubric config (R9) — deferred by design until pilot feedback.
+- [ ] discover/eval scheduler (`internal/sched`, §7) — needs the eval-harness port
+  (v1 `eval.py`/`discover.py`), a separate sizable chunk.
+
 ### M5 — Decommission & handoff (2–3 sessions)
 v1 marked legacy-for-experiments (its host-side planning role ends when M3's plan parity is
 green), docs updated, team default decision.
