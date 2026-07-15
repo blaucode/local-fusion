@@ -56,6 +56,6 @@ the M2 kill-switch exit-gate test).
 - Revisit: per-stage token *input* budgets once Q8 metrics exist (32K ceiling).
 
 ## Action Items
-1. [ ] Budgets in `internal/jobs` via context deadlines + call counters (M2)
-2. [ ] Judge-retry ledger in manifest; refusal path + message (M2)
-3. [ ] Kill-switch CI test = M2 exit-gate item (shared with ADR-003)
+1. [x] Budgets in `internal/jobs` via context deadlines + call counters (M2, `55dd693`)
+2. [x] Judge-retry ledger in manifest; `escalate_to_human` refusal in `lf_judge` (P1)
+3. [x] Kill-switch test = runner tests + `make soak` (shared with ADR-003)

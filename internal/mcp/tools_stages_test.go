@@ -147,6 +147,52 @@ func TestGatedFlowOverMCP(t *testing.T) {
 	}
 }
 
+// TestJudgeRetryLedger proves ADR-007's guarantee: two judge rounds run, the
+// third escalates to a human WITHOUT invoking judges.
+func TestJudgeRetryLedger(t *testing.T) {
+	// Enough responses for 2 rounds × 2 judges; a 3rd round must not consume any.
+	caller := &scriptedCaller{responses: []string{
+		"req: 7\nsec: 7\nmaint: 7", "req: 7\nsec: 7\nmaint: 7", // round 1 → FAIL
+		"req: 7\nsec: 7\nmaint: 7", "req: 7\nsec: 7\nmaint: 7", // round 2 → FAIL
+	}}
+	session, st := newStageHarness(t, caller)
+
+	base := map[string]any{
+		"project_id": "repo", "slug": "sl", "task_id": "01", "task_slug": "auth",
+		"changed_files": "// code", "brief": "Build it.",
+		"test_report": map[string]any{"command": "go test", "exit_code": 0},
+	}
+
+	for round := 1; round <= 2; round++ {
+		out := callStage(t, session, "lf_judge", base)
+		if out["ok"] != true || out["escalated"] == true {
+			t.Fatalf("round %d should judge: %v", round, out)
+		}
+		if int(out["attempt"].(float64)) != round {
+			t.Fatalf("round %d attempt = %v", round, out["attempt"])
+		}
+	}
+
+	// Third attempt: escalate_to_human, no model call consumed.
+	before := len(caller.responses)
+	out := callStage(t, session, "lf_judge", base)
+	if out["verdict"] != "escalate_to_human" || out["escalated"] != true {
+		t.Fatalf("third attempt must escalate: %v", out)
+	}
+	if !strings.Contains(out["gate_reason"].(string), "escalates to a human") {
+		t.Fatalf("gate_reason = %v", out["gate_reason"])
+	}
+	if len(caller.responses) != before {
+		t.Fatal("escalation must not invoke judges")
+	}
+
+	// Ledger persisted in the manifest.
+	m, _ := st.ReadManifest("repo", "sl")
+	if m.Tasks[0].JudgeAttempts != 2 {
+		t.Fatalf("judge_attempts = %d, want 2", m.Tasks[0].JudgeAttempts)
+	}
+}
+
 func TestStageToolsWithoutConfig(t *testing.T) {
 	st, err := store.New(t.TempDir())
 	if err != nil {

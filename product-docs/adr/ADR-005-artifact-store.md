@@ -43,6 +43,6 @@ artifacts.
 - Revisit: retention policy once the volume grows (not before).
 
 ## Action Items
-1. [ ] `internal/store` schema: artifacts, jobs, metrics (M2)
+1. [x] `internal/store` schema: artifacts, jobs, metrics (M2, `0da6dd9`)
 2. [ ] Skill materialization step + "volume is canonical" note in docs
-3. [ ] metrics.jsonl gains `user`, `repo`, `server_version` fields (schema `build-2.0`)
+3. [x] metrics.jsonl gained `user`, `repo`, `server_version` (schema `build-2.0`, M2f)

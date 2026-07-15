@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -131,6 +132,45 @@ type lfJudgeOut struct {
 	GateReason string              `json:"gate_reason,omitempty"`
 	Judges     []judge.JudgeResult `json:"judges,omitempty"`
 	VerdictMD  string              `json:"verdict_md,omitempty"`
+	Attempt    int                 `json:"attempt,omitempty"`
+	Escalated  bool                `json:"escalated,omitempty"`
+}
+
+// maxJudgeAttempts turns v1's "fix, re-judge once, then stop" convention into
+// an engine guarantee (ADR-007): two judge rounds run; a third is refused with
+// escalate_to_human. The ledger lives in the manifest (Task.JudgeAttempts) and
+// is a v2 tool-contract concern — the ported judge engine stays byte-faithful.
+const maxJudgeAttempts = 2
+
+// judgeAttempts reads the current per-task attempt count (0 if unknown).
+func judgeAttempts(d EngineDeps, projectID, slug, taskID string) int {
+	m, err := d.Store.ReadManifest(projectID, slug)
+	if err != nil {
+		return 0
+	}
+	for _, t := range m.Tasks {
+		if t.ID == taskID {
+			return t.JudgeAttempts
+		}
+	}
+	return 0
+}
+
+// bumpJudgeAttempts records one completed judge round in the manifest.
+func bumpJudgeAttempts(d EngineDeps, projectID, slug, taskID string) int {
+	m, err := d.Store.ReadManifest(projectID, slug)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for i := range m.Tasks {
+		if m.Tasks[i].ID == taskID {
+			m.Tasks[i].JudgeAttempts++
+			n = m.Tasks[i].JudgeAttempts
+		}
+	}
+	_ = d.Store.WriteManifest(projectID, slug, m)
+	return n
 }
 
 func registerLfJudge(server *sdk.Server, d EngineDeps) {
@@ -139,6 +179,8 @@ func registerLfJudge(server *sdk.Server, d EngineDeps) {
 		Description: "Dual-judge quality gate with a deterministic test gate: PASS requires " +
 			"test exit_code 0 AND average score >= 8.0 — failing tests force FAIL no matter " +
 			"what the judges score (ADR-006). Run your tests first and pass the report. " +
+			"After two judge rounds on the same task, a third returns escalate_to_human " +
+			"instead of judging again (ADR-007) — stop and get a person. " +
 			"Synchronous (up to ~7 min with reasoning judges). See docs/tools.md#lf_judge.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in lfJudgeIn) (*sdk.CallToolResult, any, error) {
 		if d.Cfg == nil {
@@ -149,6 +191,15 @@ func registerLfJudge(server *sdk.Server, d EngineDeps) {
 				return nil, lfJudgeOut{OK: false, Error: err.Error()}, nil
 			}
 		}
+		// Judge-retry ledger (ADR-007): refuse a third attempt BEFORE burning
+		// model calls, turning v1's "re-judge once, then stop" convention into
+		// a guarantee.
+		if prior := judgeAttempts(d, in.ProjectID, in.Slug, in.TaskID); prior >= maxJudgeAttempts {
+			return nil, lfJudgeOut{OK: true, Verdict: "escalate_to_human", Escalated: true, Attempt: prior,
+				GateReason: fmt.Sprintf("judge-retry ledger: task %s already judged %d times — "+
+					"a third attempt escalates to a human instead of re-judging (ADR-007). "+
+					"Stop the fix→re-judge loop and get a person to look.", in.TaskID, prior)}, nil
+		}
 		agg, err := judge.Task(ctx,
 			judge.Deps{Store: d.Store, Cfg: d.Cfg, Caller: d.Caller, Log: d.Log, User: d.User, ServerVersion: d.Ver},
 			in.ProjectID, in.Slug, in.TaskID, in.TaskSlug, in.ChangedFiles, in.Pipeline, in.TaskLabel,
@@ -156,10 +207,11 @@ func registerLfJudge(server *sdk.Server, d EngineDeps) {
 		if err != nil {
 			return nil, lfJudgeOut{OK: false, Error: err.Error()}, nil
 		}
+		attempt := bumpJudgeAttempts(d, in.ProjectID, in.Slug, in.TaskID)
 		md, _ := d.Store.ReadArtifact(in.ProjectID, in.Slug, "build/"+in.TaskID+"-"+in.TaskSlug+"/verdict.md")
 		return nil, lfJudgeOut{OK: true, Verdict: agg.Verdict, Avg: agg.Avg, Req: agg.Req,
 			Sec: agg.Sec, Maint: agg.Maint, GateReason: agg.GateReason, Judges: agg.Judges,
-			VerdictMD: string(md)}, nil
+			VerdictMD: string(md), Attempt: attempt}, nil
 	})
 }
 

@@ -54,6 +54,6 @@ verification is real but small — v1 already trusted the agent for the more dan
   that generates signed git state.
 
 ## Action Items
-1. [ ] `git_state` required arg + refusal path in `lf_plan` (M2)
+1. [x] `git_state` required arg + refusal path in `lf_plan` (M3, `396c2c5`)
 2. [ ] Skill: branch creation, attestation, artifact materialization steps
-3. [ ] Remove `gitops.py` semantics from the port scope (M3 checklist)
+3. [x] `gitops.py` semantics kept out of the port (plan/coder ports, M3)

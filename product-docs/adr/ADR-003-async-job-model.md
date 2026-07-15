@@ -60,6 +60,6 @@ the boring, proven pattern; every alternative re-couples job survival to connect
   client). Under the stdio fallback they degrade — see ADR-002 amendment.
 
 ## Action Items
-1. [ ] Job runner with persistence + idempotent submit (M2)
+1. [x] Job runner with persistence + idempotent submit (M2, `55dd693`)
 2. [ ] Skill poll loop + stage-granular progress strings
-3. [ ] Kill-switch CI test (budget_exhausted path) — also gates ADR-007
+3. [x] Kill-switch test (budget_exhausted path) — runner tests + `make soak` (M2, `55dd693`)

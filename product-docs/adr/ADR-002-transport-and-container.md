@@ -99,5 +99,5 @@ stdio deployments keep the refusal default; the token check is always enforced w
 
 ## Action Items
 1. [x] S2 spike: echo over Streamable HTTP — Claude Code, Cline (bar), Cursor all PASS, 3/3 (Amendment 2026-07-11)
-2. [ ] `GET /healthz`; skill checks before first submit
-3. [ ] Token middleware + refuse non-localhost bind without token
+2. [x] `GET /healthz` served; skill checks before first submit (M2, `b47fe00`)
+3. [x] Token middleware + refuse non-localhost bind without token (M2, `b47fe00`)

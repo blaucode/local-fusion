@@ -47,5 +47,5 @@ strictly smaller than v1's.
 
 ## Action Items
 1. [x] v1 implementation + unit tests (2026-07-08)
-2. [ ] One live gated run to verify wiring end-to-end (pending since overnight run)
-3. [ ] Port contract to Go with identical semantics; contract test in CI (M3, judge stage)
+2. [x] One live gated run verified wiring end-to-end (M2, `8105269`)
+3. [x] Ported to Go with identical semantics; parity gate in CI (M2f, judge stage)

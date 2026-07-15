@@ -146,14 +146,18 @@ type ScoreSet struct {
 	Avg   PyFloat `json:"avg"`
 }
 
-// Task is one manifest task entry; field set and order match v1 plan.py.
+// Task is one manifest task entry; the first six fields (id..scores) match
+// v1 plan.py field-for-field and order. JudgeAttempts is a v2 addition
+// (ADR-007 judge-retry ledger) — omitempty so a task that has never been
+// judged serializes byte-identically to a v1 manifest (parity-safe).
 type Task struct {
-	ID     string    `json:"id"`
-	Slug   string    `json:"slug"`
-	Title  string    `json:"title"`
-	Deps   []string  `json:"deps"`
-	Status string    `json:"status"`
-	Scores *ScoreSet `json:"scores"`
+	ID            string    `json:"id"`
+	Slug          string    `json:"slug"`
+	Title         string    `json:"title"`
+	Deps          []string  `json:"deps"`
+	Status        string    `json:"status"`
+	Scores        *ScoreSet `json:"scores"`
+	JudgeAttempts int       `json:"judge_attempts,omitempty"`
 }
 
 // Intent is the ADR-011 attestation: every plan run traces to human-owned
