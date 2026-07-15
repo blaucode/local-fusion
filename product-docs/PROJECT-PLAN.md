@@ -151,8 +151,9 @@ gate; the judge bench is a documented SPOF and stays off the critical path).
   (flaky providers): lead-fallback (5 calls) and coder-b-survivor (3 calls); together they
   verify parallel dispatch, both rungs, evaluator+parse_base, and lead-request construction
   (commit `51e4f9e`). **The M3 port is complete — full v1 engine surface in Go, parity-gated.**
-- [ ] skill update: submit→poll loop, intent/git_state gathering (ADR-011) — the remaining
-  M3 item; where v2 skills live is an owner decision
+- [x] **skill rewrite** — `skill/local-fusion/SKILL.md` (canonical, agent-agnostic) +
+  `docs/skill.md` install guide: submit→poll loop, intent + git_state gathering, artifact
+  materialization, escalate_to_human handling (ADR-003/004/011). **M3 complete.**
 
 ### M4 — v2-only features (4–6 sessions)
 Hot reload (R8), stage-granular progress (R10), rubric config (R9 — only with pilot

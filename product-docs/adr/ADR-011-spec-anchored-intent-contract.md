@@ -77,5 +77,5 @@ multi-model deliberation + gate in the loop.
 ## Action Items
 1. [x] `intent` added to `lf_plan` contract (M3, `396c2c5`)
 2. [x] Charter artifact type + expiry in `internal/store` (M3, `396c2c5`)
-3. [ ] Skill: intent-gathering step before `lf_plan`; refusal message UX
+3. [x] Skill: intent-gathering step before `lf_plan`; refusal UX (skill/local-fusion/SKILL.md)
 4. [ ] PRD R13 added (same commit)

@@ -7,6 +7,7 @@
 - [Configuration](./configuration.md) — keys, auth token, flags
 - [MCP setup per agent](./mcp-setup.md) — Claude Code, Cline, Cursor
 - [Tool reference](./tools.md) — the `lf_*` tools
+- [The skill](./skill.md) — install the agent-side operating guide that drives the loop
 
 **Status (M3, in progress):** the complete v1 tool surface is served — both transports,
 health checking, token auth, the async job engine, the job tools (`lf_job`, `lf_cancel`,

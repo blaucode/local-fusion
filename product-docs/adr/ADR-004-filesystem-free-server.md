@@ -55,5 +55,5 @@ verification is real but small — v1 already trusted the agent for the more dan
 
 ## Action Items
 1. [x] `git_state` required arg + refusal path in `lf_plan` (M3, `396c2c5`)
-2. [ ] Skill: branch creation, attestation, artifact materialization steps
+2. [x] Skill: branch creation, attestation, artifact materialization steps (skill/local-fusion/SKILL.md)
 3. [x] `gitops.py` semantics kept out of the port (plan/coder ports, M3)

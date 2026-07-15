@@ -61,5 +61,5 @@ the boring, proven pattern; every alternative re-couples job survival to connect
 
 ## Action Items
 1. [x] Job runner with persistence + idempotent submit (M2, `55dd693`)
-2. [ ] Skill poll loop + stage-granular progress strings
+2. [x] Skill poll loop + stage-granular progress strings (skill/local-fusion/SKILL.md)
 3. [x] Kill-switch test (budget_exhausted path) — runner tests + `make soak` (M2, `55dd693`)

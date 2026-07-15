@@ -44,5 +44,5 @@ artifacts.
 
 ## Action Items
 1. [x] `internal/store` schema: artifacts, jobs, metrics (M2, `0da6dd9`)
-2. [ ] Skill materialization step + "volume is canonical" note in docs
+2. [x] Skill materialization step + "volume is canonical" note (skill + docs/skill.md)
 3. [x] metrics.jsonl gained `user`, `repo`, `server_version` (schema `build-2.0`, M2f)
