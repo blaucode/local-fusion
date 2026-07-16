@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"strings"
 	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -154,11 +155,12 @@ type lfStatusIn struct {
 }
 
 type lfStatusOut struct {
-	OK        bool                     `json:"ok"`
-	Error     string                   `json:"error,omitempty"`
-	Manifest  any                      `json:"manifest,omitempty"`
-	Jobs      []JobView                `json:"jobs"`
-	Providers []providers.ProviderStat `json:"providers,omitempty"`
+	OK           bool                     `json:"ok"`
+	Error        string                   `json:"error,omitempty"`
+	Manifest     any                      `json:"manifest,omitempty"`
+	Jobs         []JobView                `json:"jobs"`
+	Providers    []providers.ProviderStat `json:"providers,omitempty"`
+	Constitution bool                     `json:"constitution_active"` // ADR-012
 }
 
 func registerLfStatus(server *sdk.Server, deps Deps) {
@@ -189,6 +191,7 @@ func registerLfStatus(server *sdk.Server, deps Deps) {
 			if m, err := deps.Store.ReadManifest(in.ProjectID, in.Slug); err == nil {
 				out.Manifest = m
 			}
+			out.Constitution = strings.TrimSpace(deps.Store.ReadConstitution(in.ProjectID)) != ""
 		}
 		sort.Slice(out.Jobs, func(a, b int) bool {
 			return out.Jobs[a].SubmittedAt.Before(out.Jobs[b].SubmittedAt)

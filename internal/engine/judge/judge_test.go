@@ -422,3 +422,34 @@ func TestJudgeTaskCoverageGate(t *testing.T) {
 		t.Fatalf("full coverage must PASS: %+v", agg2)
 	}
 }
+
+func TestConstitutionInjection(t *testing.T) {
+	// Absent constitution → judge prompt is unchanged (parity-safe path).
+	d, fake, st := newDeps(t)
+	seedTask(t, st)
+	fake.responses = []response{{"req: 9\nsec: 9\nmaint: 9", true}, {"req: 9\nsec: 9\nmaint: 9", true}}
+	if _, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "",
+		map[string]any{"command": "go test", "exit_code": 0}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(fake.requests[0].Messages[1].Content, "PROJECT CONSTITUTION") {
+		t.Fatal("no constitution must leave the prompt unchanged")
+	}
+
+	// Present constitution → appended to the judge user prompt.
+	d2, fake2, st2 := newDeps(t)
+	seedTask(t, st2)
+	if err := os.WriteFile(filepath.Join(st2.Root(), "projects", "repo", "constitution.md"),
+		[]byte("Never inline SQL. Handlers return typed errors."), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fake2.responses = []response{{"req: 9\nsec: 9\nmaint: 9", true}, {"req: 9\nsec: 9\nmaint: 9", true}}
+	if _, err := Task(context.Background(), d2, "repo", "sl", "01", "auth", "CODE", "", "",
+		map[string]any{"command": "go test", "exit_code": 0}, nil); err != nil {
+		t.Fatal(err)
+	}
+	got := fake2.requests[0].Messages[1].Content
+	if !strings.Contains(got, "PROJECT CONSTITUTION") || !strings.Contains(got, "Never inline SQL") {
+		t.Fatalf("constitution not injected:\n%s", got[len(got)-200:])
+	}
+}

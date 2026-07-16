@@ -23,6 +23,16 @@ the server still runs; the stage tools answer with a structured error pointing h
 
 `LF_USER` (optional) attributes `metrics.jsonl` records to you; defaults to `$USER`.
 
+## Project constitution (optional)
+
+Place a `constitution.md` in the data volume at `projects/<project_id>/constitution.md` to
+give a project persistent, human-authored principles — the non-negotiables a plan must
+honor and a judge scores against ("use the repo's auth middleware; never inline SQL; tests
+required for every endpoint"). When present it is injected (append-only) into the plan
+synthesizer and `lf_judge`, so both the planning brain and the gate measure against it.
+Absent = today's behavior. Keep it small and human-edited (about one screen). `lf_status`
+reports `constitution_active`. (ADR-012.)
+
 ## Auth
 
 `LF_AUTH_TOKEN` — static bearer token protecting `/mcp`.

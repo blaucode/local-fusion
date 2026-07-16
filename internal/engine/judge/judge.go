@@ -476,6 +476,12 @@ func Task(ctx context.Context, d Deps, projectID, slug, taskID, taskSlug, change
 	if err != nil {
 		return Aggregate{}, err
 	}
+	// Project constitution (ADR-012): append-only, empty-default → the prompt is
+	// byte-identical when absent, so parity holds. This wrapper is v2-authored,
+	// NOT a ported frozen prompt (ADR-008 governs the frozen v1 blocks only).
+	if c := d.Store.ReadConstitution(projectID); strings.TrimSpace(c) != "" {
+		messages[len(messages)-1].Content += "\n\nPROJECT CONSTITUTION (score REQUIREMENTS against these non-negotiable principles; a violation is a defect):\n" + c
+	}
 
 	var results []JudgeResult
 	for i, j := range judges {

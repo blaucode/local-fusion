@@ -25,6 +25,21 @@ type Charter struct {
 // ErrCharter reports a missing, corrupt, or expired charter.
 var ErrCharter = errors.New("charter")
 
+// ReadConstitution returns the project's constitution.md (ADR-012) — persistent
+// human-authored principles — or "" when none is present. Placed in the volume
+// like charters; the server never invents it. Callers inject it append-only
+// and empty-default (parity-safe).
+func (s *Store) ReadConstitution(projectID string) string {
+	if err := validateID("project_id", projectID); err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(s.root, "projects", projectID, "constitution.md"))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 // CheckCharter validates a chore-tier intent ref (ADR-011 rule 4).
 func (s *Store) CheckCharter(id string) (Charter, error) {
 	if err := validateID("charter id", id); err != nil {

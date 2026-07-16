@@ -1,6 +1,6 @@
 # ADR-012: Project constitution — persistent principles injected into plan and judge
 
-**Status:** Accepted · **Date:** 2026-07-16 · **Deciders:** Adolfo
+**Status:** Accepted — implemented 2026-07-16 · **Date:** 2026-07-16 · **Deciders:** Adolfo
 **Implements:** the qualitative half of PRD **R9** (per-repo rubric). **Prior art:**
 github/spec-kit `constitution.md` + "Constitution Check", reframed for the multi-model loop.
 
@@ -33,10 +33,12 @@ at two points:
 
 Injection is **append-only and empty by default**: with no constitution the rendered prompt
 is byte-identical to today, so the record/replay parity gates (ADR-010) are unaffected. The
-injection wrapper text is v2-authored prompt data and lives in `prompts/` (a new
-`prompts/injections.tmpl`), checksummed by the freeze check but exempt from the v1 byte-diff
-(it has no v1 source) — the frozen v1 blocks (ADR-008) are never touched or paraphrased.
-`lf_status` returns whether a constitution is active (transparency, like `lf_lessons`).
+injection wrapper is a small **v2-authored constant** in the engine, clearly labelled as
+*not* a ported prompt — ADR-008's "never inline prompts in Go" governs the frozen v1 stage
+blocks, which are never touched or paraphrased; a v2-only feature wrapper is new data, and
+keeping it out of `prompts/` avoids breaking the freeze check (layer 2 byte-diffs the
+committed manifest against a fresh v1 extraction, which has no v2 files). `lf_status` reports
+whether a constitution is active (transparency, like `lf_lessons`).
 
 ## Options Considered
 
@@ -66,6 +68,6 @@ human-edited and small (same discipline as lessons: ≤ ~1 screen).
   lessons distiller may *propose* constitution amendments (proposal + human approval only).
 
 ## Action Items
-1. [ ] `store.ReadConstitution(project_id)`; `prompts/injections.tmpl` (constitution wrappers)
-2. [ ] Append-only injection in plan synthesizer + `lf_judge`; empty-default parity test
-3. [ ] `lf_status` reports constitution active; docs (configuration + tools); tests
+1. [x] `store.ReadConstitution(project_id)`; v2-authored injection constants (labelled)
+2. [x] Append-only injection in plan synthesizer + `lf_judge`; empty-default parity test
+3. [x] `lf_status` reports constitution active; docs (configuration); tests

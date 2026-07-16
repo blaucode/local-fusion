@@ -52,7 +52,16 @@ This selection is precisely why an agent drives local-fusion — you are far bet
 than a human typing paths. Too little context and the coders guess; too much and they
 drown. Pick the files that define the patterns to follow.
 
-## Step 2 — Establish human-owned intent (REQUIRED)
+## Step 2 — Clarify ambiguity (conditional)
+
+If the request is underspecified in ways that would change the plan — unclear auth scheme,
+response shape, error semantics, edge cases, which existing component to reuse — surface
+those as a short numbered list of questions and get the human's answers BEFORE planning.
+Fold the answers into `request`/`context`. A misread here is expensive: it propagates
+through the plan, the coders, the reviewer, and the judge before anyone notices (ADR-013).
+If the request is already clear, skip this — clarification is conditional, not ceremony.
+
+## Step 3 — Establish human-owned intent (REQUIRED)
 
 local-fusion refuses to plan without human-owned intent — the loop never runs on a
 goal-free "improve the code" prompt. Before planning, settle the `intent` attestation with
@@ -75,7 +84,7 @@ intent: {
 
 If the user has no spec/issue/charter, stop and get one. That is the point of the gate.
 
-## Step 3 — Prepare git (YOUR job) and attest
+## Step 4 — Prepare git (YOUR job) and attest
 
 The server can't touch your repo, so you create the branch and **attest** to its state:
 
@@ -90,11 +99,11 @@ git_state: { branch: "feature/<slug>", base_branch: "<base>", clean: true }
 `clean: true` must be truthful — it stands in for the server's old `ensure_clean` check,
 and the attestation is recorded in the artifact trail.
 
-## Step 4 — Plan (async)
+## Step 5 — Plan (async)
 
 Call `lf_plan` with: `project_id` (the repo name), `slug` (short readable feature name,
 e.g. `vendor-api`), `request` (the user's prompt verbatim), `context` (Step 1),
-`git_state` (Step 3), `intent` (Step 2). Optional: `no_fusion: true` for the faster
+`git_state` (Step 4), `intent` (Step 3). Optional: `no_fusion: true` for the faster
 solo-deliberation path (default runs the TL panel + synthesizer).
 
 It returns `{job_id}`. **Poll `lf_job(job_id)`** until `done`. The result is the manifest:
@@ -107,7 +116,7 @@ the artifact trail into the repo at `local-fusion/<slug>/` (write the files your
 source — the server keeps the canonical copy in its volume; the in-repo copy is a reviewable
 convenience committed with the feature).
 
-## Step 5 — Per task, in dependency order
+## Step 6 — Per task, in dependency order
 
 Use `id` from the task list as `task_id` (e.g. `"01"`) and `slug` as `task_slug`. Respect
 `deps`. For each task:
@@ -146,7 +155,7 @@ pass the task brief once via the `brief` argument to `lf_review`/`lf_judge`.
 Use `lf_status(project_id, slug)` any time to read the manifest, task statuses, running
 jobs, and per-provider health counters.
 
-## Step 6 — Report
+## Step 7 — Report
 
 Summarize per task: what was built, files changed, judge scores. If you materialized the
 artifact trail, commit `local-fusion/<slug>/` with the feature.

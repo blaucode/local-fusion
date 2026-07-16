@@ -281,7 +281,7 @@ func RunTLPanel(ctx context.Context, d Deps, taskText, synthesis string, tlModel
 // synthesizer merges deliberation + panel findings into the final three-part
 // brief; on failure it degrades to the haft compare output (v1's
 // orchestrator-fallback pattern) rather than aborting the plan.
-func SynthesizePlan(ctx context.Context, d Deps, taskText, synthesis string, findings []string, synth providers.Resolved) (adr, planText, acceptance string, err error) {
+func SynthesizePlan(ctx context.Context, d Deps, taskText, synthesis string, findings []string, synth providers.Resolved, constitution string) (adr, planText, acceptance string, err error) {
 	findingsCombined := "(no panel findings)"
 	if len(findings) > 0 {
 		findingsCombined = strings.Join(findings, "\n\n---\n\n")
@@ -295,6 +295,11 @@ func SynthesizePlan(ctx context.Context, d Deps, taskText, synthesis string, fin
 	})
 	if err != nil {
 		return "", "", "", err
+	}
+	// Project constitution (ADR-012): append-only, empty-default → byte-identical
+	// when absent, so parity holds. v2-authored wrapper, not a frozen prompt.
+	if strings.TrimSpace(constitution) != "" {
+		user += "\n\nPROJECT CONSTITUTION (the brief MUST comply with these non-negotiable principles):\n" + constitution
 	}
 	out, ok := d.Caller.CallModel(ctx, providers.CallRequest{
 		ModelKey: synth.Key, ModelID: synth.Model.ID, BaseURL: synth.Provider.BaseURL,
@@ -455,6 +460,7 @@ func feature(ctx context.Context, d Deps, progress Progress,
 		}
 	}
 
+	constitution := d.Store.ReadConstitution(projectID) // ADR-012; "" when absent → no injection
 	var manifestTasks []store.Task
 	for i, task := range tasks {
 		taskID := fmt.Sprintf("%02d", i+1)
@@ -488,7 +494,7 @@ func feature(ctx context.Context, d Deps, progress Progress,
 			}
 			progress(fmt.Sprintf("task %d/%d (%s): synthesizing final plan", i+1, len(tasks), task.Slug))
 			d.Log(fmt.Sprintf("[plan] task %s: synthesizing final plan...", taskID))
-			adr, planText, acceptance, err = SynthesizePlan(ctx, d, taskText, synthesis, findings, synth)
+			adr, planText, acceptance, err = SynthesizePlan(ctx, d, taskText, synthesis, findings, synth, constitution)
 			if err != nil {
 				return SoloResult{}, fmt.Errorf("task %s: %w", taskID, err)
 			}
