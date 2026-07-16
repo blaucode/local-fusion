@@ -114,7 +114,10 @@ building**.
 Each task has `plan.md`, `adr.md`, `acceptance.md`, `context.md`. Optionally materialize
 the artifact trail into the repo at `local-fusion/<slug>/` (write the files yourself, like
 source — the server keeps the canonical copy in its volume; the in-repo copy is a reviewable
-convenience committed with the feature).
+convenience committed with the feature). Optionally, if the team tracks work in GitHub, open
+one issue per manifest task (title from the task, body from its `plan.md`/`acceptance.md`) so
+the plan is visible where the team already looks — you own git and the GitHub CLI, the server
+never does.
 
 ## Step 6 — Per task, in dependency order
 
@@ -158,7 +161,10 @@ jobs, and per-provider health counters.
 ## Step 7 — Report
 
 Summarize per task: what was built, files changed, judge scores. If you materialized the
-artifact trail, commit `local-fusion/<slug>/` with the feature.
+artifact trail, commit `local-fusion/<slug>/` with the feature. Optionally open a pull
+request for `feature/<slug>` — reference any task issues you created in Step 5 and paste the
+per-task verdicts — so the reviewable trail lands where the team reviews. (You open the PR;
+the server can't.)
 
 ## Do NOT
 
