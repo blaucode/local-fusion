@@ -98,16 +98,30 @@ review_md}` — `review.md` is also persisted in the artifact volume.
 
 ## lf_judge
 
-The quality gate: dual-judge scoring plus the deterministic test gate. Synchronous
-(reasoning judges can take minutes).
+The quality gate: dual-judge scoring plus two deterministic gates — the test gate and the
+acceptance-coverage gate. Synchronous (reasoning judges can take minutes).
 
 **Args:** as `lf_review`, plus **`test_report`**: `{command, exit_code, summary}` from
-the test run you just executed. Malformed reports are rejected outright — a gate that
-silently ignores bad evidence is worse than no gate.
+the test run you just executed (malformed reports are rejected outright), and optionally
+**`acceptance_coverage`**: one evidence string per acceptance criterion, in the order they
+appear in the task's `acceptance.md` — the test or code that proves it.
 
 **Returns:** `{ok, verdict, avg, req, sec, maint, gate_reason?, judges[], verdict_md,
-attempt}`. `verdict` is `PASS` only when `exit_code == 0` **and** the score average is
-≥ 8.0. Every run appends a `metrics.jsonl` record (schema `build-2.0`).
+attempt, acceptance_criteria?, acceptance_uncovered?}`. `verdict` is `PASS` only when
+`exit_code == 0` **and** the score average is ≥ 8.0 **and** every acceptance criterion is
+covered. Every run appends a `metrics.jsonl` record (schema `build-2.0`).
+
+**Acceptance-coverage gate (ADR-014):** when the task's `acceptance.md` has criteria, PASS
+requires every one attested-covered. Call `lf_judge` once with no `acceptance_coverage` to
+get the parsed `acceptance_criteria` back, then pass one evidence string per criterion (in
+order). Missing or blank entries force FAIL and are named in `acceptance_uncovered` and
+`verdict.md`. A task with no acceptance criteria is unaffected. This makes "we built every
+thing the brief asked for" a deterministic guarantee, not a judge opinion.
+
+**Judge-retry ledger (ADR-007):** the manifest tracks judge attempts per task. After two
+rounds on the same task, a third call returns `verdict: "escalate_to_human"` with
+`escalated: true` and **runs no judges** — v1's "re-judge once, then stop" convention is
+now enforced. Stop the fix→re-judge loop and get a person.
 
 **Judge-retry ledger (ADR-007):** the manifest tracks judge attempts per task. After two
 rounds on the same task, a third call returns `verdict: "escalate_to_human"` with

@@ -217,3 +217,56 @@ func TestStageToolsWithoutConfig(t *testing.T) {
 		t.Fatalf("no-config error = %v", out)
 	}
 }
+
+// TestAcceptanceCoverageGateOverMCP: a task with acceptance criteria FAILs
+// without coverage (green tests + high scores notwithstanding) and PASSes with
+// full coverage — ADR-014, driven over Streamable HTTP.
+func TestAcceptanceCoverageGateOverMCP(t *testing.T) {
+	caller := &scriptedCaller{responses: []string{
+		"req: 9\nsec: 9\nmaint: 9", "req: 9\nsec: 9\nmaint: 9", // round 1
+		"req: 9\nsec: 9\nmaint: 9", "req: 9\nsec: 9\nmaint: 9", // round 2
+	}}
+	session, st := newStageHarness(t, caller)
+
+	// Seed a task whose acceptance.md has two criteria.
+	if _, err := st.InitSlug("repo", "sl", "req", "main", "b", false); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := st.ReadManifest("repo", "sl")
+	m.Tasks = append(m.Tasks, store.Task{ID: "01", Slug: "auth", Title: "Auth", Deps: []string{}, Status: "implemented"})
+	if err := st.WriteManifest("repo", "sl", m); err != nil {
+		t.Fatal(err)
+	}
+	_ = st.WriteTaskArtifact("repo", "sl", "01", "auth", "plan.md", []byte("brief"))
+	_ = st.WriteTaskArtifact("repo", "sl", "01", "auth", "acceptance.md",
+		[]byte("- returns hello name\n- 401 when unauthenticated\n"))
+
+	base := map[string]any{
+		"project_id": "repo", "slug": "sl", "task_id": "01", "task_slug": "auth",
+		"changed_files": "code", "test_report": map[string]any{"command": "go test", "exit_code": 0},
+	}
+
+	// No coverage → FAIL, criteria echoed back.
+	out := callStage(t, session, "lf_judge", base)
+	if out["verdict"] != "FAIL" {
+		t.Fatalf("uncovered must FAIL: %v", out)
+	}
+	crit, _ := out["acceptance_criteria"].([]any)
+	if len(crit) != 2 {
+		t.Fatalf("criteria not echoed: %v", out["acceptance_criteria"])
+	}
+	if !strings.Contains(out["gate_reason"].(string), "not attested") {
+		t.Fatalf("gate_reason = %v", out["gate_reason"])
+	}
+
+	// Full coverage → PASS (attempt 2, still under the ledger cap).
+	covered := map[string]any{}
+	for k, v := range base {
+		covered[k] = v
+	}
+	covered["acceptance_coverage"] = []any{"TestHello", "TestUnauth"}
+	out = callStage(t, session, "lf_judge", covered)
+	if out["verdict"] != "PASS" {
+		t.Fatalf("full coverage must PASS: %v", out)
+	}
+}

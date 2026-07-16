@@ -110,13 +110,70 @@ type JudgeResult struct {
 	ModelKey             string
 }
 
-// Aggregate is the dual-judge aggregate (v1 aggregate + test gate fields).
+// Aggregate is the dual-judge aggregate (v1 aggregate + test/coverage gate fields).
 type Aggregate struct {
 	Req, Sec, Maint, Avg float64
 	Verdict              string
 	Judges               []JudgeResult
 	Tests                *TestReport
 	GateReason           string
+	// Coverage is the acceptance-coverage result (ADR-014); nil when the task
+	// has no parseable acceptance criteria (gate inert, parity-safe).
+	Coverage *CoverageResult
+}
+
+// CoverageResult records acceptance-criteria coverage (ADR-014): the ordered
+// criteria parsed from acceptance.md and which of them the caller's
+// acceptance_coverage attestation left uncovered.
+type CoverageResult struct {
+	Criteria  []string `json:"criteria"`
+	Uncovered []string `json:"uncovered"`
+	Attested  bool     `json:"attested"`
+}
+
+// acceptanceItemRe matches one acceptance criterion: a bullet (-, *), an
+// optional checkbox, or a numbered item — "a checklist, one item per line"
+// (the synthesizer's ACCEPTANCE section). Prose lines are ignored.
+var acceptanceItemRe = regexp.MustCompile(`(?m)^[ \t]*(?:[-*][ \t]+(?:\[[ xX]\][ \t]+)?|\d+[.)][ \t]+)(\S.*?)[ \t]*$`)
+
+// ParseAcceptanceCriteria extracts the ordered criteria from acceptance.md.
+func ParseAcceptanceCriteria(md string) []string {
+	var out []string
+	for _, m := range acceptanceItemRe.FindAllStringSubmatch(md, -1) {
+		out = append(out, strings.TrimSpace(m[1]))
+	}
+	return out
+}
+
+// ApplyAcceptanceGate ports ADR-014: PASS additionally requires every
+// acceptance criterion to be covered. coverage[i] (non-empty) attests
+// criteria[i]. Inert when there are no criteria (parity-safe). Applied after
+// the test gate; a pre-existing FAIL reason (red tests) is kept.
+func ApplyAcceptanceGate(agg Aggregate, criteria, coverage []string) Aggregate {
+	if len(criteria) == 0 {
+		return agg
+	}
+	cov := &CoverageResult{Criteria: criteria, Attested: len(coverage) > 0}
+	for i, c := range criteria {
+		if i >= len(coverage) || strings.TrimSpace(coverage[i]) == "" {
+			cov.Uncovered = append(cov.Uncovered, c)
+		}
+	}
+	agg.Coverage = cov
+	if len(cov.Uncovered) > 0 {
+		agg.Verdict = "FAIL"
+		if agg.GateReason == "" {
+			if !cov.Attested {
+				agg.GateReason = fmt.Sprintf(
+					"acceptance coverage: %d criterion(s) not attested — pass acceptance_coverage (one evidence string per criterion, in order)",
+					len(criteria))
+			} else {
+				agg.GateReason = fmt.Sprintf("acceptance coverage: %d of %d criteria uncovered",
+					len(cov.Uncovered), len(criteria))
+			}
+		}
+	}
+	return agg
 }
 
 var (
@@ -317,6 +374,13 @@ func FormatVerdict(agg Aggregate, nModels int) string {
 		}
 		lines = append(lines, fmt.Sprintf("tests: %s%s", status, cmd))
 	}
+	if agg.Coverage != nil {
+		covered := len(agg.Coverage.Criteria) - len(agg.Coverage.Uncovered)
+		lines = append(lines, fmt.Sprintf("coverage: %d/%d acceptance criteria covered", covered, len(agg.Coverage.Criteria)))
+		for _, u := range agg.Coverage.Uncovered {
+			lines = append(lines, fmt.Sprintf("  uncovered: %s", u))
+		}
+	}
 	if agg.GateReason != "" {
 		lines = append(lines, fmt.Sprintf("gate: %s", agg.GateReason))
 	}
@@ -353,11 +417,14 @@ type metricsEntry struct {
 	MaintScore store.PyFloat `json:"maintainability_score"`
 	Verdict    string        `json:"verdict"`
 	TestsGreen *bool         `json:"tests_green"`
-	SchemaVer  string        `json:"schema_version"`
-	Notes      string        `json:"notes"`
-	User       string        `json:"user"`
-	Repo       string        `json:"repo"`
-	ServerVer  string        `json:"server_version"`
+	// AcceptanceCovered is nil when the task has no acceptance criteria
+	// (additive field, ADR-014); true/false when a coverage gate applied.
+	AcceptanceCovered *bool  `json:"acceptance_covered,omitempty"`
+	SchemaVer         string `json:"schema_version"`
+	Notes             string `json:"notes"`
+	User              string `json:"user"`
+	Repo              string `json:"repo"`
+	ServerVer         string `json:"server_version"`
 }
 
 // Deps are the judge stage's collaborators.
@@ -373,7 +440,7 @@ type Deps struct {
 
 // Task ports judge.py::judge_task. Sequential judges (matching v1's request
 // order for replay parity), 420s + one retry, max_tokens 32768.
-func Task(ctx context.Context, d Deps, projectID, slug, taskID, taskSlug, changedFiles, pipeline, taskLabel string, testReport any) (Aggregate, error) {
+func Task(ctx context.Context, d Deps, projectID, slug, taskID, taskSlug, changedFiles, pipeline, taskLabel string, testReport any, acceptanceCoverage []string) (Aggregate, error) {
 	log := d.Log
 	if log == nil {
 		log = func(string) {}
@@ -444,6 +511,11 @@ func Task(ctx context.Context, d Deps, projectID, slug, taskID, taskSlug, change
 	agg := AggregateResults(results)
 	agg = ApplyTestGate(agg, report)
 
+	// Acceptance-coverage gate (ADR-014): read the task's acceptance criteria
+	// and require each covered. Absent/empty acceptance.md → inert.
+	accBytes, _ := d.Store.ReadArtifact(projectID, slug, "tasks/"+taskID+"-"+taskSlug+"/acceptance.md")
+	agg = ApplyAcceptanceGate(agg, ParseAcceptanceCriteria(string(accBytes)), acceptanceCoverage)
+
 	if err := d.Store.WriteBuildArtifact(projectID, slug, taskID, taskSlug, "verdict.md",
 		[]byte(FormatVerdict(agg, len(results)))); err != nil {
 		return Aggregate{}, err
@@ -462,13 +534,18 @@ func Task(ctx context.Context, d Deps, projectID, slug, taskID, taskSlug, change
 		green := agg.Tests.ExitCode == 0
 		testsGreen = &green
 	}
+	var acceptanceCovered *bool
+	if agg.Coverage != nil {
+		fully := len(agg.Coverage.Uncovered) == 0
+		acceptanceCovered = &fully
+	}
 	entry := metricsEntry{
 		Phase: "build", Slug: slug, TaskID: taskIDField, Task: taskID, Arm: "build",
 		TaskType: "implementation", Pipeline: pipeline,
 		Date: time.Now().UTC().Format("2006-01-02"), ModelsUsed: keys, Iterations: 1,
 		JudgeScore: store.PyFloat(agg.Avg), ReqScore: store.PyFloat(agg.Req),
 		SecScore: store.PyFloat(agg.Sec), MaintScore: store.PyFloat(agg.Maint),
-		Verdict: agg.Verdict, TestsGreen: testsGreen, SchemaVer: "build-2.0",
+		Verdict: agg.Verdict, TestsGreen: testsGreen, AcceptanceCovered: acceptanceCovered, SchemaVer: "build-2.0",
 		Notes: fmt.Sprintf("local-fusion build judge; dual-judge aggregate over %d judges", len(keys)),
 		User:  d.User, Repo: projectID, ServerVer: d.ServerVersion,
 	}

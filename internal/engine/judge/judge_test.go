@@ -165,7 +165,7 @@ func TestJudgeTaskGreenPath(t *testing.T) {
 		{"req: 9\nsec: 9\nmaint: 9\nverdict: PASS\nnotes: fine", true},
 	}
 
-	agg, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "THE CODE", "", "", map[string]any{"command": "go test", "exit_code": 0, "summary": "all green"})
+	agg, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "THE CODE", "", "", map[string]any{"command": "go test", "exit_code": 0, "summary": "all green"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestRedTestsForceFail(t *testing.T) {
 		{"req: 10\nsec: 10\nmaint: 10\nverdict: PASS", true},
 		{"req: 10\nsec: 10\nmaint: 10\nverdict: PASS", true},
 	}
-	agg, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "", map[string]any{"command": "go test", "exit_code": 2})
+	agg, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "", map[string]any{"command": "go test", "exit_code": 2}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +286,7 @@ func TestJudgeRetryAndDegradation(t *testing.T) {
 		{"", false},
 		{"", false},
 	}
-	agg, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "", nil)
+	agg, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +298,7 @@ func TestJudgeRetryAndDegradation(t *testing.T) {
 	}
 	// All judges fail → error, never a fabricated verdict.
 	fake.responses = []response{{"", false}, {"", false}, {"", false}, {"", false}}
-	if _, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "", nil); err == nil {
+	if _, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "", nil, nil); err == nil {
 		t.Fatal("no parseable judges must error")
 	}
 }
@@ -306,13 +306,119 @@ func TestJudgeRetryAndDegradation(t *testing.T) {
 func TestJudgeInputValidation(t *testing.T) {
 	d, _, st := newDeps(t)
 	seedTask(t, st)
-	if _, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "  ", "", "", nil); err == nil {
+	if _, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "  ", "", "", nil, nil); err == nil {
 		t.Fatal("empty implementation must error")
 	}
-	if _, err := Task(context.Background(), d, "repo", "sl", "99", "auth", "CODE", "", "", nil); err == nil {
+	if _, err := Task(context.Background(), d, "repo", "sl", "99", "auth", "CODE", "", "", nil, nil); err == nil {
 		t.Fatal("missing brief must error")
 	}
-	if _, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "", "not json"); err == nil {
+	if _, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "", "not json", nil); err == nil {
 		t.Fatal("malformed test_report must fail fast")
+	}
+}
+
+func TestParseAcceptanceCriteria(t *testing.T) {
+	md := "## ACCEPTANCE\n\n- GET /greeting returns 200 for an authed user\n" +
+		"* Returns 401 when unauthenticated\n" +
+		"- [ ] Response is application/json\n" +
+		"1. Includes a unit test\n" +
+		"2) Truncates names over 256 bytes\n" +
+		"Some prose that is not a criterion.\n"
+	got := ParseAcceptanceCriteria(md)
+	want := []string{
+		"GET /greeting returns 200 for an authed user",
+		"Returns 401 when unauthenticated",
+		"Response is application/json",
+		"Includes a unit test",
+		"Truncates names over 256 bytes",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d criteria %v, want %d", len(got), got, len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("criterion %d = %q, want %q", i, got[i], want[i])
+		}
+	}
+	if len(ParseAcceptanceCriteria("just prose\nno bullets")) != 0 {
+		t.Fatal("prose-only must yield no criteria")
+	}
+}
+
+func TestApplyAcceptanceGate(t *testing.T) {
+	crit := []string{"a", "b", "c"}
+	base := Aggregate{Verdict: "PASS", Avg: 9}
+
+	// No criteria → inert.
+	if g := ApplyAcceptanceGate(base, nil, nil); g.Coverage != nil || g.Verdict != "PASS" {
+		t.Fatal("no criteria must be inert")
+	}
+	// Criteria, no coverage → FAIL, not attested.
+	g := ApplyAcceptanceGate(base, crit, nil)
+	if g.Verdict != "FAIL" || len(g.Coverage.Uncovered) != 3 || g.Coverage.Attested {
+		t.Fatalf("no coverage: %+v", g.Coverage)
+	}
+	if !strings.Contains(g.GateReason, "not attested") {
+		t.Fatalf("reason = %q", g.GateReason)
+	}
+	// Partial coverage (b blank) → FAIL naming the uncovered.
+	g = ApplyAcceptanceGate(base, crit, []string{"test A", "", "code C"})
+	if g.Verdict != "FAIL" || len(g.Coverage.Uncovered) != 1 || g.Coverage.Uncovered[0] != "b" {
+		t.Fatalf("partial: %+v", g.Coverage)
+	}
+	// Full coverage → PASS preserved, coverage recorded.
+	g = ApplyAcceptanceGate(base, crit, []string{"t1", "t2", "t3"})
+	if g.Verdict != "PASS" || len(g.Coverage.Uncovered) != 0 {
+		t.Fatalf("full: %+v", g)
+	}
+	// Red tests already FAILed → keep the test-gate reason, still record coverage.
+	red := Aggregate{Verdict: "FAIL", GateReason: "test gate: 'go test' exited 1"}
+	g = ApplyAcceptanceGate(red, crit, nil)
+	if g.Verdict != "FAIL" || !strings.HasPrefix(g.GateReason, "test gate") || g.Coverage == nil {
+		t.Fatalf("red+uncovered: reason=%q coverage=%+v", g.GateReason, g.Coverage)
+	}
+}
+
+func seedTaskWithAcceptance(t *testing.T, st *store.Store) {
+	t.Helper()
+	seedTask(t, st)
+	acc := "- Endpoint returns hello <name>\n- Returns 401 when unauthenticated\n"
+	if err := st.WriteTaskArtifact("repo", "sl", "01", "auth", "acceptance.md", []byte(acc)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestJudgeTaskCoverageGate(t *testing.T) {
+	// Green tests + high scores, but a task with acceptance criteria.
+	report := map[string]any{"command": "go test", "exit_code": 0}
+	pass := []response{{"req: 9\nsec: 9\nmaint: 9", true}, {"req: 9\nsec: 9\nmaint: 9", true}}
+
+	// No coverage attested → FAIL despite green+high.
+	d, fake, st := newDeps(t)
+	seedTaskWithAcceptance(t, st)
+	fake.responses = pass
+	agg, err := Task(context.Background(), d, "repo", "sl", "01", "auth", "CODE", "", "", report, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if agg.Verdict != "FAIL" || agg.Coverage == nil || len(agg.Coverage.Uncovered) != 2 {
+		t.Fatalf("uncovered must FAIL: %+v", agg)
+	}
+	v, _ := st.ReadArtifact("repo", "sl", "build/01-auth/verdict.md")
+	if !strings.Contains(string(v), "coverage: 0/2 acceptance criteria covered") {
+		t.Fatalf("verdict.md coverage line missing:\n%s", v)
+	}
+
+	// Full coverage → PASS.
+	d2, fake2, st2 := newDeps(t)
+	seedTaskWithAcceptance(t, st2)
+	fake2.responses = pass
+	agg2, err := Task(context.Background(), d2, "repo", "sl", "01", "auth", "CODE", "", "", report,
+		[]string{"TestGreeting hello case", "TestGreeting 401 case"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if agg2.Verdict != "PASS" || len(agg2.Coverage.Uncovered) != 0 {
+		t.Fatalf("full coverage must PASS: %+v", agg2)
 	}
 }

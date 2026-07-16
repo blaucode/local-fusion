@@ -17,6 +17,9 @@ Statuses: Proposed → Accepted → Superseded. M1 spike results amend 001/002 w
 | [009](./ADR-009-coder-fusion-pending-ablation.md) | Coder-fusion: port verbatim, decide by ablation | Accepted (default undecided by design; amended: judge prerequisite) |
 | [010](./ADR-010-deterministic-parity.md) | Port parity via record/replay, judges off the critical path | Accepted (supersedes ±0.5 judge-score parity) |
 | [011](./ADR-011-spec-anchored-intent-contract.md) | Spec-anchored intent contract: `lf_plan` refuses without human-owned intent (tiered: PRD / brief / charter) | Accepted |
+| [012](./ADR-012-project-constitution.md) | Project constitution: persistent principles injected (parity-safe) into plan + judge | Accepted |
+| [013](./ADR-013-clarification-gate.md) | Pre-plan clarification gate (skill-side now; `lf_clarify` tool design-first) | Accepted |
+| [014](./ADR-014-acceptance-coverage-gate.md) | Acceptance-coverage gate: every acceptance criterion must be attested covered | Accepted |
 
 **2026-07-09 external review** produced: amendments to 002 (capacity policy, stdio-retreat
 honesty), 003 (reconnect/idempotency mechanics), 009 (ablation instrument prerequisite);

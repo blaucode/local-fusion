@@ -119,15 +119,16 @@ func registerLfReview(server *sdk.Server, d EngineDeps) {
 }
 
 type lfJudgeIn struct {
-	ProjectID    string         `json:"project_id" jsonschema:"opaque project identifier (use the repo name)"`
-	Slug         string         `json:"slug" jsonschema:"the work slug"`
-	TaskID       string         `json:"task_id" jsonschema:"task id from the manifest (e.g. 01)"`
-	TaskSlug     string         `json:"task_slug" jsonschema:"task slug from the manifest"`
-	ChangedFiles string         `json:"changed_files" jsonschema:"full content of every changed file, concatenated with path headers"`
-	TestReport   map[string]any `json:"test_report" jsonschema:"deterministic test evidence: {command, exit_code, summary} from the test runner you just executed"`
-	Pipeline     string         `json:"pipeline,omitempty" jsonschema:"pipeline name (default: default)"`
-	TaskLabel    string         `json:"task_label,omitempty" jsonschema:"metrics label (default: slug/task_id)"`
-	Brief        string         `json:"brief,omitempty" jsonschema:"the task brief; required once if planning has not run for this task (briefs-as-data)"`
+	ProjectID          string         `json:"project_id" jsonschema:"opaque project identifier (use the repo name)"`
+	Slug               string         `json:"slug" jsonschema:"the work slug"`
+	TaskID             string         `json:"task_id" jsonschema:"task id from the manifest (e.g. 01)"`
+	TaskSlug           string         `json:"task_slug" jsonschema:"task slug from the manifest"`
+	ChangedFiles       string         `json:"changed_files" jsonschema:"full content of every changed file, concatenated with path headers"`
+	TestReport         map[string]any `json:"test_report" jsonschema:"deterministic test evidence: {command, exit_code, summary} from the test runner you just executed"`
+	AcceptanceCoverage []string       `json:"acceptance_coverage,omitempty" jsonschema:"one evidence string per acceptance criterion, in the order they appear in the task's acceptance.md (ADR-014): the test or code that covers it. PASS requires every criterion covered. Call once with no coverage to see the criteria list."`
+	Pipeline           string         `json:"pipeline,omitempty" jsonschema:"pipeline name (default: default)"`
+	TaskLabel          string         `json:"task_label,omitempty" jsonschema:"metrics label (default: slug/task_id)"`
+	Brief              string         `json:"brief,omitempty" jsonschema:"the task brief; required once if planning has not run for this task (briefs-as-data)"`
 }
 
 type lfJudgeOut struct {
@@ -143,6 +144,10 @@ type lfJudgeOut struct {
 	VerdictMD  string              `json:"verdict_md,omitempty"`
 	Attempt    int                 `json:"attempt,omitempty"`
 	Escalated  bool                `json:"escalated,omitempty"`
+	// Coverage echoes the parsed acceptance criteria and which remain
+	// uncovered (ADR-014), so the agent knows exactly what to attest.
+	Criteria  []string `json:"acceptance_criteria,omitempty"`
+	Uncovered []string `json:"acceptance_uncovered,omitempty"`
 }
 
 // maxJudgeAttempts turns v1's "fix, re-judge once, then stop" convention into
@@ -185,11 +190,12 @@ func bumpJudgeAttempts(d EngineDeps, projectID, slug, taskID string) int {
 func registerLfJudge(server *sdk.Server, d EngineDeps) {
 	sdk.AddTool(server, &sdk.Tool{
 		Name: "lf_judge",
-		Description: "Dual-judge quality gate with a deterministic test gate: PASS requires " +
-			"test exit_code 0 AND average score >= 8.0 — failing tests force FAIL no matter " +
-			"what the judges score (ADR-006). Run your tests first and pass the report. " +
-			"After two judge rounds on the same task, a third returns escalate_to_human " +
-			"instead of judging again (ADR-007) — stop and get a person. " +
+		Description: "Dual-judge quality gate with deterministic test AND acceptance-coverage " +
+			"gates: PASS requires test exit_code 0 AND average score >= 8.0 AND every acceptance " +
+			"criterion covered — failing tests or an uncovered criterion force FAIL no matter what " +
+			"the judges score (ADR-006/014). Run your tests first and pass the report; pass " +
+			"acceptance_coverage (one evidence string per criterion). After two judge rounds a " +
+			"third returns escalate_to_human (ADR-007) — stop and get a person. " +
 			"Synchronous (up to ~7 min with reasoning judges). See docs/tools.md#lf_judge.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in lfJudgeIn) (*sdk.CallToolResult, any, error) {
 		cfg := d.config()
@@ -213,15 +219,20 @@ func registerLfJudge(server *sdk.Server, d EngineDeps) {
 		agg, err := judge.Task(ctx,
 			judge.Deps{Store: d.Store, Cfg: cfg, Caller: d.Caller, Log: d.Log, User: d.User, ServerVersion: d.Ver},
 			in.ProjectID, in.Slug, in.TaskID, in.TaskSlug, in.ChangedFiles, in.Pipeline, in.TaskLabel,
-			anyOrNil(in.TestReport))
+			anyOrNil(in.TestReport), in.AcceptanceCoverage)
 		if err != nil {
 			return nil, lfJudgeOut{OK: false, Error: err.Error()}, nil
 		}
 		attempt := bumpJudgeAttempts(d, in.ProjectID, in.Slug, in.TaskID)
 		md, _ := d.Store.ReadArtifact(in.ProjectID, in.Slug, "build/"+in.TaskID+"-"+in.TaskSlug+"/verdict.md")
-		return nil, lfJudgeOut{OK: true, Verdict: agg.Verdict, Avg: agg.Avg, Req: agg.Req,
+		out := lfJudgeOut{OK: true, Verdict: agg.Verdict, Avg: agg.Avg, Req: agg.Req,
 			Sec: agg.Sec, Maint: agg.Maint, GateReason: agg.GateReason, Judges: agg.Judges,
-			VerdictMD: string(md), Attempt: attempt}, nil
+			VerdictMD: string(md), Attempt: attempt}
+		if agg.Coverage != nil {
+			out.Criteria = agg.Coverage.Criteria
+			out.Uncovered = agg.Coverage.Uncovered
+		}
+		return nil, out, nil
 	})
 }
 

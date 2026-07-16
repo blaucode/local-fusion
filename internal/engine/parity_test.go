@@ -239,7 +239,7 @@ func TestParityHexcolor(t *testing.T) {
 	}
 	if _, err := judge.Task(context.Background(),
 		judge.Deps{Store: st, Cfg: cfg, Caller: rc, Log: log, User: "parity", ServerVersion: "parity"},
-		projectID, slug, "01", "parse", changed, "default", "", testReport); err != nil {
+		projectID, slug, "01", "parse", changed, "default", "", testReport, nil); err != nil {
 		t.Fatalf("judge: %v", err)
 	}
 

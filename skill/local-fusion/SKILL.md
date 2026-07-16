@@ -125,9 +125,14 @@ c. **Review.** Call `lf_review(project_id, slug, task_id, task_slug, changed_fil
    Fix the critical and important findings.
 
 d. **Judge.** Call `lf_judge(project_id, slug, task_id, task_slug, changed_files,
-   test_report)`. **ALWAYS pass `test_report`** — a non-zero `exit_code` forces FAIL
-   regardless of judge scores (the test runner outranks the models). Never judge untested
-   code.
+   test_report, acceptance_coverage)`. **ALWAYS pass `test_report`** — a non-zero
+   `exit_code` forces FAIL regardless of judge scores (the test runner outranks the
+   models). Never judge untested code. **Also pass `acceptance_coverage`** whenever the
+   task has acceptance criteria: one evidence string per criterion (the test/code that
+   proves it), in the order they appear in `acceptance.md`. An uncovered criterion forces
+   FAIL just like a red test — this guarantees you built everything the brief asked for.
+   Unsure of the criteria? Call once without coverage; the response returns
+   `acceptance_criteria` to attest against.
    - **PASS** → continue to the next task.
    - **FAIL** → fix per the judge's notes, then re-judge. Do NOT re-run `lf_coder_fusion`;
      fix the specific findings yourself.
