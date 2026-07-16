@@ -80,11 +80,12 @@ expired charter is refused.
 1. Implement the task; run the test suite yourself.
 2. `lf_review` with the changed files → fix the findings that matter.
 3. Re-run tests; call `lf_judge` with the changed files **and the test report**.
-4. PASS ⇔ tests green AND average score ≥ 8.0. A red test run makes PASS impossible —
-   no model can override the test runner.
+4. PASS ⇔ tests green AND average score ≥ 8.0 AND every acceptance criterion covered. A red
+   test run or an uncovered criterion makes PASS impossible — no model can override them.
 
-Until planning runs on the server (M3), supply the task brief once via the `brief`
-argument (either tool); it is stored as the task's `plan.md` and reused afterwards.
+If you're reviewing or judging a change that wasn't planned through `lf_plan`, supply the
+task brief once via the `brief` argument (either tool); it's stored as the task's `plan.md`
+and reused on later calls for that task.
 
 ## lf_review
 
@@ -124,11 +125,6 @@ get the parsed `acceptance_criteria` back, then pass one evidence string per cri
 order). Missing or blank entries force FAIL and are named in `acceptance_uncovered` and
 `verdict.md`. A task with no acceptance criteria is unaffected. This makes "we built every
 thing the brief asked for" a deterministic guarantee, not a judge opinion.
-
-**Judge-retry ledger (ADR-007):** the manifest tracks judge attempts per task. After two
-rounds on the same task, a third call returns `verdict: "escalate_to_human"` with
-`escalated: true` and **runs no judges** — v1's "re-judge once, then stop" convention is
-now enforced. Stop the fix→re-judge loop and get a person.
 
 **Judge-retry ledger (ADR-007):** the manifest tracks judge attempts per task. After two
 rounds on the same task, a third call returns `verdict: "escalate_to_human"` with

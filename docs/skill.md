@@ -27,10 +27,11 @@ together.
 
 ## Using it
 
-Once installed and the [server is running](./quickstart.md) and
-[connected](./mcp-setup.md), invoke the skill (e.g. `/local-fusion`) or just ask the agent
-to "build this with local-fusion". The agent will: gather repo context, settle
-human-owned intent with you, create the feature branch, plan, then per task run
-coder-fusion → test → review → judge, showing you the plan and the verdicts along the way.
+Once the skill is installed and the [server is running](./quickstart.md) and
+[connected](./mcp-setup.md), invoke it (e.g. `/local-fusion`) or ask the agent to "build
+this with local-fusion". The agent gathers repo context, settles human-owned intent with
+you, creates the feature branch, plans, then runs coder-fusion → test → review → judge per
+task, showing you the plan and each verdict along the way.
 
-See the [tool reference](./tools.md) for what each tool the skill calls returns.
+For a full end-to-end example, see the [usage walkthrough](./usage.md). For what each tool
+returns, see the [tool reference](./tools.md).

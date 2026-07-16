@@ -1,6 +1,6 @@
 # Quickstart
 
-Host requirements: **docker + make**. Nothing else — no Go, no Python.
+Get from zero to a connected agent in four steps. Host requirements: **docker + make**.
 
 ## 1. Configure keys
 
@@ -17,18 +17,24 @@ make docker-build
 make docker-run
 ```
 
-The server listens on `http://localhost:8484` (bound to 127.0.0.1). Verify:
+`make docker-run` requires `providers.env` to exist (step 1) and publishes the server on
+`127.0.0.1:8484`. Verify it's up:
 
 ```sh
 curl http://localhost:8484/healthz   # → ok
 ```
 
-Your agent's skill does this same check before submitting work.
+The skill runs this same check before it submits any work.
+
+To score code (`lf_review`/`lf_judge`) or plan (`lf_plan`) the server also needs a model
+registry — a v1-schema `providers.yaml` in the data volume. See
+[configuration](./configuration.md#provider-registry).
 
 ## 3. Connect your coding agent
 
-Point the agent at `http://localhost:8484/mcp` — exact steps per agent in
-[MCP setup](./mcp-setup.md).
+Point the agent at `http://localhost:8484/mcp` (Streamable HTTP) — exact steps per agent
+in [MCP setup](./mcp-setup.md). Then install [the skill](./skill.md) so the agent knows
+how to drive the loop.
 
 ## 4. Logs / stop
 
@@ -45,5 +51,10 @@ Agents that must spawn a local process can use the kept stdio transport:
 local-fusion serve --stdio
 ```
 
-Note: under stdio the server lives and dies with your agent — in-flight jobs die with
-it. HTTP is the primary transport for a reason; use stdio only when HTTP isn't an option.
+Under stdio the server lives and dies with the agent process, so in-flight jobs die with
+it. Prefer HTTP; use stdio only when your agent can't connect to a remote server.
+
+## Next steps
+
+- [Install the skill](./skill.md) — the agent-side guide that drives plan → build → judge.
+- [Usage walkthrough](./usage.md) — run one feature end to end.

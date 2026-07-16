@@ -14,9 +14,10 @@ env-only by design: command-line arguments are visible in `ps`.
 Copy `providers.env.example` to `providers.env` and fill these in. Never commit the real
 file (it's gitignored); the server never logs key material.
 
-## Providers
+## Provider registry
 
-`lf_review` and `lf_judge` need the model registry: a **v1-schema `providers.yaml`**
+`lf_plan`, `lf_coder_fusion`, `lf_review`, and `lf_judge` need the model registry: a
+**v1-schema `providers.yaml`**
 (providers, models, pipelines — your existing v1 file works unmodified). Put it at
 `/data/providers.yaml` (inside the volume) or point `serve --config` at it. Without it
 the server still runs; the stage tools answer with a structured error pointing here.
@@ -55,8 +56,15 @@ reports `constitution_active`. (ADR-012.)
 |---|---|---|
 | `--addr` | `127.0.0.1:8484` | HTTP listen address (`host:port`) |
 | `--stdio` | off | serve MCP over stdio instead of HTTP |
+| `--config` | `/data/providers.yaml` | provider registry (v1 schema); required for the model stages |
+| `--data` | `/data` | artifact volume root |
+| `--workers` | `4` | max jobs running concurrently |
+| `--insecure-no-token` | off | allow a non-loopback bind without `LF_AUTH_TOKEN` (container-internal only) |
+
+`make docker-run` sets these for you; you only pass them when running the binary directly.
 
 ## Logs
 
-Structured JSON on stderr. Per-job/stage/provider fields arrive with the job runner
-(M2); the log shape (JSON lines) is stable from the first release.
+Structured JSON lines on stderr, tagged with job, stage, and provider fields. Tail them
+with `make docker-logs`. Per-provider health counters (calls, errors, average latency) are
+also available live via [`lf_status`](./tools.md#lf_status).
