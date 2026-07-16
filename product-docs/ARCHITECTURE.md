@@ -57,8 +57,11 @@ repo name).
 
 ## 3. Async job model (load-bearing decision #2)
 
-Long stages (`plan`, `coder_fusion`) become jobs. Short ones (`review`, `judge`, `status`)
-stay synchronous — they're 1–2 model calls.
+Every model-calling stage — `plan`, `coder_fusion`, `review`, `judge` — is a job: submit
+returns a `job_id` in under 2s and the agent polls `lf_job`. Only `lf_status`, `lf_cancel`,
+and `lf_job` themselves are synchronous. `review` and `judge` were originally kept sync on a
+"1–2 calls" assumption; a reviewer panel and a dual reasoning-judge round are minutes long
+and exceeded client timeouts, so they moved to the job model (ADR-003 amendment 2026-07-16).
 
 ### Tool surface
 
@@ -68,11 +71,11 @@ stay synchronous — they're 1–2 model calls.
 | `lf_coder_fusion` | async → `job_id` | `solo=true` may run sync (single coder, ~1 call) |
 | `lf_job` | sync | `job_id` → `{status, progress, partial, result?, error?}` |
 | `lf_cancel` | sync | Cooperative cancel; artifacts written so far are preserved |
-| `lf_review` | sync | Unchanged semantics |
-| `lf_judge` | sync | **New required arg: `test_report`** (see §5) |
-| `lf_status` | sync | Manifest + running jobs for the slug |
-| `lf_lessons` | sync | Read/preview the lessons that will be injected (transparency) |
+| `lf_review` | async → `job_id` | Reviewer panel; poll `lf_job` (ADR-003 amendment) |
+| `lf_judge` | async → `job_id` | **Required arg: `test_report`**; optional `acceptance_coverage` (see §5). Poll `lf_job`; the retry-ledger `escalate_to_human` answers synchronously |
+| `lf_status` | sync | Manifest + running jobs for the slug + per-provider health counters |
 | `lf_reload` | sync | Hot-reload providers.yaml/env — kills v1's "restart after any config change" |
+| `lf_lessons` | *planned* | Read/preview injected lessons — part of the §6 memory loop, not yet built |
 
 Job lifecycle: `queued → running → done | failed | cancelled | budget_exhausted`. Progress is
 stage-granular ("task 2/4: TL panel 1/3") so the skill can narrate. Jobs and results persist
@@ -104,17 +107,28 @@ v1 gap: the agent runs tests but the judge never sees results — an LLM-only PA
 on red tests. v2:
 
 ```
-lf_judge(project_id, slug, task_id, changed_files, test_report, task_label)
-  test_report: {command, exit_code, summary, failures[]}   ← produced by the agent
-  gate: PASS ⇔ exit_code == 0 AND avg ≥ threshold   (8.0 default; per-repo via R9 later)
+lf_judge(project_id, slug, task_id, changed_files, test_report, acceptance_coverage)
+  test_report:         {command, exit_code, summary, failures[]}   ← produced by the agent
+  acceptance_coverage: [evidence per acceptance criterion, in order]  ← produced by the agent
+  gate: PASS ⇔ exit_code == 0            (test gate, ADR-006)
+              AND avg ≥ threshold        (8.0 default; per-repo via R9 later)
+              AND every acceptance criterion attested-covered  (coverage gate, ADR-014)
 ```
 
-The dual-judge panel still scores req/sec/maint — but it *cannot* override the test runner.
-Judges additionally receive the report (calibrates "requirements" scoring, v1's coverage-gap
-blind spot). The skill already makes the agent run tests before review; this just makes the
-evidence part of the contract.
+Two deterministic gates flank the LLM scores. The **test gate** (ADR-006): a red run makes
+PASS impossible. The **acceptance-coverage gate** (ADR-014): when the task's `acceptance.md`
+has criteria, each must be attested-covered with evidence — a missing one forces FAIL and is
+named in `verdict.md`, so "we built everything the brief asked for" is a guarantee, not a
+judge opinion. The dual-judge panel still scores req/sec/maint but cannot override either
+gate. When a project [constitution](../docs/configuration.md#project-constitution-optional)
+is present it's injected (append-only, parity-safe) into the judge and the plan synthesizer
+so both measure against the same non-negotiables (ADR-012).
 
 ## 6. Memory loop (Reflexion)
+
+> **Status: design-first, not yet built** (see PROJECT-PLAN M4). Parity-safe injection
+> depends on an ADR-008 prompt-contract decision and a distiller design fork; it will reuse
+> the same append-only injection point the constitution (ADR-012) already established.
 
 New engine component, deliberately small:
 

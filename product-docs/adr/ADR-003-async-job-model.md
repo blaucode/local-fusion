@@ -16,6 +16,7 @@ Long stages (`lf_plan`, `lf_coder_fusion`) become **jobs**: submit returns a `jo
 <2s; `lf_job(job_id)` polls `{status, progress, partial, result?, error?}`; `lf_cancel`
 is cooperative. Jobs and results **persist in the store** — a crashed agent reconnects and
 polls. Short stages (`lf_review`, `lf_judge`, `lf_status`) stay synchronous (1–2 calls).
+*(Superseded for `lf_review`/`lf_judge` — see Amendment 2026-07-16; both are now jobs.)*
 Lifecycle: `queued → running → done | failed | cancelled | budget_exhausted`.
 
 ## Options Considered

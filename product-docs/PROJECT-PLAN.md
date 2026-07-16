@@ -109,9 +109,10 @@ reference for everything shipped so far — R15) proven by **pilot engineer #1 o
   message bytes) AND byte-identical review.md / verdict.md / manifest.json.
   Negative-tested (tampered fixture → caught). Fixtures: `internal/engine/testdata/parity/`.
 - [ ] **Pilot onboarding ≤15 min using only docs/** — reviewer being arranged by owner.
-- Known issue (observed in live smoke, logged for M3): a client MCP retry re-executed
-  the sync `lf_judge` once (duplicate metrics line, double provider spend). v1 had the
-  same exposure; candidate fixes: request-hash dedupe for sync tools, or async judge.
+- ~~Known issue: a client MCP retry re-executed the sync `lf_judge` once (duplicate metrics
+  line, double provider spend).~~ **Resolved 2026-07-16 (`a0c244e`):** `lf_review`/`lf_judge`
+  became async jobs (ADR-003 amendment), so a client retry re-attaches to the existing
+  idempotent job instead of re-executing — same fix that removed the client-timeout risk.
 
 ### M3 — Port the planning brain, parity-gated (8–14 sessions)
 *(judge + review moved into M2 by the 2026-07-10 amendment.)* Order: **plan-solo**
@@ -160,12 +161,26 @@ Hot reload (R8), stage-granular progress (R10), rubric config (R9 — only with 
 feedback in hand), provider `anthropic` client if not already exercised.
 **Exit gate:** PRD success-criteria checklist §6 leading indicators measurable.
 
-**M4 progress (2026-07-15, post-M3 hardening batch):**
+**M4 progress (2026-07-16, post-M3 hardening + spec-kit batch):**
 - [x] **Hot reload (R8)** — `lf_reload` + swappable config holder (P3, `3bfabdc`).
 - [x] **Baseline observability** — per-provider counters in `lf_status` (P4, `8e3f6d2`);
   closes the M2 "baseline service observability" item.
 - [x] **Judge-retry ledger / `escalate_to_human`** (ADR-007) — was an unshipped M2 gap;
   built in P1 (`2eb0988`).
+- [x] **Async `lf_review` + `lf_judge`** (ADR-003 amendment, `a0c244e`) — moved to the job
+  model; fixes the client-timeout finding from the first live build and the M2 duplicate-
+  execution known-issue. Live-verified (submit ~48ms). The escalate check stays synchronous.
+- [x] **Acceptance-coverage gate (ADR-014)** — `lf_judge` now fails a task with any
+  uncovered acceptance criterion, deterministically, alongside the test gate (`31cfe85`).
+  Parity-safe: inert when a task has no criteria.
+- [x] **Project constitution (ADR-012)** — optional per-project principles injected
+  (append-only, parity-safe) into the plan synthesizer and `lf_judge`; `lf_status` reports
+  `constitution_active` (`42a078d`). First reusable parity-safe injection point; the lessons
+  loop will reuse it.
+- [x] **Clarification gate (ADR-013)** — pre-plan clarify step added skill-side; the
+  `lf_clarify` tool is design-first, not built (`42a078d`).
+- Note: ADRs 012/013/014 came out of a 2026-07-16 review of github/spec-kit for borrowable
+  concepts; the acceptance-coverage gate was the highest-value borrow.
 - [ ] **Lessons/Reflexion loop (§6)** — **needs design before code, not built.** Reasons:
   (a) injecting lessons into the frozen haft/synthesizer prompts is an ADR-008 prompt-
   contract decision; (b) the distiller is a design fork (model-based vs heuristic;

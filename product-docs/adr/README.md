@@ -6,9 +6,9 @@ Statuses: Proposed → Accepted → Superseded. M1 spike results amend 001/002 w
 
 | ADR | Decision | Status |
 |---|---|---|
-| [001](./ADR-001-go-rewrite.md) | Rewrite engine in Go, single static binary | Accepted (pending M1 evidence) |
-| [002](./ADR-002-transport-and-container.md) | Streamable HTTP primary + stdio kept; Docker; bearer token | Accepted (pending M1 evidence) |
-| [003](./ADR-003-async-job-model.md) | Async submit→poll job model for long stages | Accepted |
+| [001](./ADR-001-go-rewrite.md) | Rewrite engine in Go, single static binary | Accepted — M1 evidence in (S1/Q1 PASS) |
+| [002](./ADR-002-transport-and-container.md) | Streamable HTTP primary + stdio kept; Docker; bearer token | Accepted — M1 evidence in (S2/Q3 PASS, 3/3 clients) |
+| [003](./ADR-003-async-job-model.md) | Async submit→poll job model for long stages | Accepted — amended 2026-07-16 (review + judge now async) |
 | [004](./ADR-004-filesystem-free-server.md) | Filesystem-free server; agent owns files/git; attestation | Accepted |
 | [005](./ADR-005-artifact-store.md) | Engine-owned artifact store; agent materializes in-repo copy | Accepted |
 | [006](./ADR-006-deterministic-test-gate.md) | Deterministic test gate outranks LLM judges | Accepted — shipped in v1 |
