@@ -88,7 +88,9 @@ argument (either tool); it is stored as the task's `plan.md` and reused afterwar
 
 ## lf_review
 
-Multi-model code review of an implementation against its task brief. Synchronous.
+Multi-model code review of an implementation against its task brief. **Async** (a
+reviewer panel runs sequentially and can exceed client timeouts): returns a `job_id`; poll
+[`lf_job`](#lf_job) until `done`, then read the findings from `job.result`.
 
 **Args:** `project_id`, `slug`, `task_id`, `task_slug`, `changed_files` (full file
 contents, concatenated), optional `pipeline`, optional `brief` (first call only).
@@ -99,17 +101,22 @@ review_md}` — `review.md` is also persisted in the artifact volume.
 ## lf_judge
 
 The quality gate: dual-judge scoring plus two deterministic gates — the test gate and the
-acceptance-coverage gate. Synchronous (reasoning judges can take minutes).
+acceptance-coverage gate. **Async** (a dual reasoning-judge round is minutes and exceeds
+client timeouts): returns a `job_id`; poll [`lf_job`](#lf_job) until `done` and read the
+verdict from `job.result`. **Exception:** the judge-retry escalation (below) is returned
+*synchronously* — a third attempt answers instantly with `escalate_to_human` and no job.
 
 **Args:** as `lf_review`, plus **`test_report`**: `{command, exit_code, summary}` from
 the test run you just executed (malformed reports are rejected outright), and optionally
 **`acceptance_coverage`**: one evidence string per acceptance criterion, in the order they
 appear in the task's `acceptance.md` — the test or code that proves it.
 
-**Returns:** `{ok, verdict, avg, req, sec, maint, gate_reason?, judges[], verdict_md,
-attempt, acceptance_criteria?, acceptance_uncovered?}`. `verdict` is `PASS` only when
-`exit_code == 0` **and** the score average is ≥ 8.0 **and** every acceptance criterion is
-covered. Every run appends a `metrics.jsonl` record (schema `build-2.0`).
+**Submit returns:** `{ok, job_id, existing, status}` — or, when the retry ledger is
+exhausted, `{ok, verdict: "escalate_to_human", escalated: true, attempt, gate_reason}` with
+no job. **`job.result`** (via `lf_job`): `{verdict, avg, req, sec, maint, gate_reason?,
+judges[], verdict_md, attempt, acceptance_criteria?, acceptance_uncovered?}`. `verdict` is
+`PASS` only when `exit_code == 0` **and** the average is ≥ 8.0 **and** every acceptance
+criterion is covered. Every run appends a `metrics.jsonl` record (schema `build-2.0`).
 
 **Acceptance-coverage gate (ADR-014):** when the task's `acceptance.md` has criteria, PASS
 requires every one attested-covered. Call `lf_judge` once with no `acceptance_coverage` to

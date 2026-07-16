@@ -86,7 +86,7 @@ func serve(args []string) error {
 	}
 	server := mcp.NewServer()
 	mcp.RegisterTools(server, mcp.Deps{Runner: runner, Store: st, Stats: providerClient})
-	mcp.RegisterStageTools(server, engineDeps)
+	mcp.RegisterStageTools(server, mcp.PlanDeps{Engine: engineDeps, Runner: runner})
 	mcp.RegisterPlanTool(server, mcp.PlanDeps{Engine: engineDeps, Runner: runner})
 	mcp.RegisterCoderTool(server, mcp.PlanDeps{Engine: engineDeps, Runner: runner})
 	mcp.RegisterReloadTool(server, engineDeps)

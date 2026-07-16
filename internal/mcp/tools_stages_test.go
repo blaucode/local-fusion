@@ -9,14 +9,17 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"local-fusion/internal/engine/providers"
+	"local-fusion/internal/jobs"
 	"local-fusion/internal/store"
 )
 
-// scriptedCaller returns canned model responses in order.
+// scriptedCaller returns canned model responses in order (jobs run one at a
+// time in these tests — each runStage awaits completion before the next).
 type scriptedCaller struct {
 	responses []string
 }
@@ -55,8 +58,14 @@ pipelines:
 		t.Fatal(err)
 	}
 
+	runner := jobs.NewRunner(2, st, nil)
+	t.Cleanup(runner.Close)
 	srv := NewServer()
-	RegisterStageTools(srv, EngineDeps{Store: st, Cfg: cfg, Caller: caller, User: "t", Ver: "test"})
+	RegisterTools(srv, Deps{Runner: runner, Store: st}) // lf_job for polling
+	RegisterStageTools(srv, PlanDeps{
+		Engine: EngineDeps{Store: st, Cfg: cfg, Caller: caller, User: "t", Ver: "test"},
+		Runner: runner,
+	})
 	ts := httptest.NewServer(Handler(srv, HTTPConfig{}))
 	t.Cleanup(ts.Close)
 
@@ -84,6 +93,38 @@ func callStage(t *testing.T, s *sdk.ClientSession, tool string, args map[string]
 	return m
 }
 
+// awaitJob polls lf_job until the job is terminal and returns its result map.
+func awaitJob(t *testing.T, s *sdk.ClientSession, jobID string) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		r := callStage(t, s, "lf_job", map[string]any{"job_id": jobID})
+		job := r["job"].(map[string]any)
+		if jobs.Status(job["status"].(string)).Terminal() {
+			if job["status"] != "done" {
+				t.Fatalf("job %s not done: %v", jobID, job)
+			}
+			return job["result"].(map[string]any)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("job %s never terminal: %v", jobID, job)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// runStage submits an async stage tool and returns its job.result. If the tool
+// answered synchronously (lf_judge escalate, or a structural error), that
+// response is returned directly.
+func runStage(t *testing.T, s *sdk.ClientSession, tool string, args map[string]any) map[string]any {
+	t.Helper()
+	out := callStage(t, s, tool, args)
+	if jid, ok := out["job_id"].(string); ok && jid != "" {
+		return awaitJob(t, s, jid)
+	}
+	return out
+}
+
 // TestGatedFlowOverMCP drives the full M2 loop an agent performs: brief in as
 // data → lf_review → lf_judge with a red report (PASS impossible) → lf_judge
 // green → PASS. All over real Streamable HTTP.
@@ -109,8 +150,8 @@ func TestGatedFlowOverMCP(t *testing.T) {
 		rev[k] = v
 	}
 	rev["brief"] = "Build the auth middleware."
-	out := callStage(t, session, "lf_review", rev)
-	if out["ok"] != true || out["minor"] != float64(1) {
+	out := runStage(t, session, "lf_review", rev)
+	if out["minor"] != float64(1) {
 		t.Fatalf("lf_review = %v", out)
 	}
 	if brief, err := st.ReadArtifact("repo", "sl", "tasks/01-auth/plan.md"); err != nil || string(brief) != "Build the auth middleware." {
@@ -123,8 +164,8 @@ func TestGatedFlowOverMCP(t *testing.T) {
 		jd[k] = v
 	}
 	jd["test_report"] = map[string]any{"command": "go test", "exit_code": 1, "summary": "1 failed"}
-	out = callStage(t, session, "lf_judge", jd)
-	if out["ok"] != true || out["verdict"] != "FAIL" || out["avg"] != float64(10) {
+	out = runStage(t, session, "lf_judge", jd)
+	if out["verdict"] != "FAIL" || out["avg"] != float64(10) {
 		t.Fatalf("red-test judge = %v", out)
 	}
 	if !strings.Contains(out["gate_reason"].(string), "failing tests force FAIL") {
@@ -133,8 +174,8 @@ func TestGatedFlowOverMCP(t *testing.T) {
 
 	// Green tests: PASS, artifacts returned as data.
 	jd["test_report"] = map[string]any{"command": "go test", "exit_code": 0, "summary": "all pass"}
-	out = callStage(t, session, "lf_judge", jd)
-	if out["ok"] != true || out["verdict"] != "PASS" || out["avg"] != float64(9) {
+	out = runStage(t, session, "lf_judge", jd)
+	if out["verdict"] != "PASS" || out["avg"] != float64(9) {
 		t.Fatalf("green-test judge = %v", out)
 	}
 	if !strings.Contains(out["verdict_md"].(string), "=== JUDGE VERDICT") {
@@ -164,16 +205,13 @@ func TestJudgeRetryLedger(t *testing.T) {
 	}
 
 	for round := 1; round <= 2; round++ {
-		out := callStage(t, session, "lf_judge", base)
-		if out["ok"] != true || out["escalated"] == true {
-			t.Fatalf("round %d should judge: %v", round, out)
-		}
+		out := runStage(t, session, "lf_judge", base) // submit → await job.result
 		if int(out["attempt"].(float64)) != round {
 			t.Fatalf("round %d attempt = %v", round, out["attempt"])
 		}
 	}
 
-	// Third attempt: escalate_to_human, no model call consumed.
+	// Third attempt: escalate_to_human synchronously, no job, no model call.
 	before := len(caller.responses)
 	out := callStage(t, session, "lf_judge", base)
 	if out["verdict"] != "escalate_to_human" || out["escalated"] != true {
@@ -198,8 +236,10 @@ func TestStageToolsWithoutConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	runner := jobs.NewRunner(2, st, nil)
+	defer runner.Close()
 	srv := NewServer()
-	RegisterStageTools(srv, EngineDeps{Store: st}) // no Cfg
+	RegisterStageTools(srv, PlanDeps{Engine: EngineDeps{Store: st}, Runner: runner}) // no Cfg
 	ts := httptest.NewServer(Handler(srv, HTTPConfig{}))
 	defer ts.Close()
 	client := sdk.NewClient(&sdk.Implementation{Name: "nocfg", Version: "0"}, nil)
@@ -246,8 +286,8 @@ func TestAcceptanceCoverageGateOverMCP(t *testing.T) {
 		"changed_files": "code", "test_report": map[string]any{"command": "go test", "exit_code": 0},
 	}
 
-	// No coverage → FAIL, criteria echoed back.
-	out := callStage(t, session, "lf_judge", base)
+	// No coverage → FAIL, criteria echoed back (in job.result).
+	out := runStage(t, session, "lf_judge", base)
 	if out["verdict"] != "FAIL" {
 		t.Fatalf("uncovered must FAIL: %v", out)
 	}
@@ -265,7 +305,7 @@ func TestAcceptanceCoverageGateOverMCP(t *testing.T) {
 		covered[k] = v
 	}
 	covered["acceptance_coverage"] = []any{"TestHello", "TestUnauth"}
-	out = callStage(t, session, "lf_judge", covered)
+	out = runStage(t, session, "lf_judge", covered)
 	if out["verdict"] != "PASS" {
 		t.Fatalf("full coverage must PASS: %v", out)
 	}

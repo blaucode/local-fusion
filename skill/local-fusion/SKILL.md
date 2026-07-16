@@ -39,7 +39,8 @@ Poll `lf_job(job_id)` every 30–60 seconds until `status` is terminal
 (`done` | `failed` | `cancelled` | `budget_exhausted`). The `progress` string narrates the
 stage ("task 2/4: TL panel 1/3") — relay it. On `done`, the result is in `job.result`.
 This survives disconnects and restarts: if you lose a `job_id`, `lf_status` lists it again.
-`lf_review`, `lf_judge`, and `lf_status` are synchronous (1–2 model calls).
+`lf_review` and `lf_judge` are async too (a reviewer panel and a dual reasoning-judge round
+take minutes) — same submit→poll. Only `lf_status` and `lf_cancel` are synchronous.
 
 ## Step 1 — Gather context (YOUR job)
 
@@ -132,19 +133,23 @@ a. **Coder-fusion (async).** Call `lf_coder_fusion(project_id, slug, task_id, ta
 b. **Test.** Run the project's tests; fix obvious breakage yourself. Capture a report:
    `{"command": "<cmd>", "exit_code": <int>, "summary": "<one line>"}`.
 
-c. **Review.** Call `lf_review(project_id, slug, task_id, task_slug, changed_files)` where
-   `changed_files` is the applied files concatenated as `=== path ===\n<content>` per file.
-   Fix the critical and important findings.
+c. **Review (async).** Call `lf_review(project_id, slug, task_id, task_slug,
+   changed_files)` where `changed_files` is the applied files concatenated as
+   `=== path ===\n<content>` per file. It returns a `job_id` — **poll `lf_job`** until
+   `done`; the findings are in `job.result`. Fix the critical and important findings.
 
-d. **Judge.** Call `lf_judge(project_id, slug, task_id, task_slug, changed_files,
+d. **Judge (async).** Call `lf_judge(project_id, slug, task_id, task_slug, changed_files,
    test_report, acceptance_coverage)`. **ALWAYS pass `test_report`** — a non-zero
    `exit_code` forces FAIL regardless of judge scores (the test runner outranks the
    models). Never judge untested code. **Also pass `acceptance_coverage`** whenever the
    task has acceptance criteria: one evidence string per criterion (the test/code that
    proves it), in the order they appear in `acceptance.md`. An uncovered criterion forces
    FAIL just like a red test — this guarantees you built everything the brief asked for.
-   Unsure of the criteria? Call once without coverage; the response returns
-   `acceptance_criteria` to attest against.
+   Unsure of the criteria? Submit once without coverage; `job.result.acceptance_criteria`
+   lists what to attest.
+   `lf_judge` returns a `job_id` — **poll `lf_job`** until `done`; the verdict is in
+   `job.result`. (One exception: if the retry ledger is exhausted it answers
+   *synchronously* with `escalate_to_human` and no `job_id`.)
    - **PASS** → continue to the next task.
    - **FAIL** → fix per the judge's notes, then re-judge. Do NOT re-run `lf_coder_fusion`;
      fix the specific findings yourself.

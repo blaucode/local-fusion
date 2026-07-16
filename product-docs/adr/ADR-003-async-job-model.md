@@ -59,6 +59,30 @@ the boring, proven pattern; every alternative re-couples job survival to connect
 - **Crash-resilience caveat:** these guarantees assume the HTTP deployment (server outlives
   client). Under the stdio fallback they degrade — see ADR-002 amendment.
 
+## Amendment (2026-07-16): review and judge move to async — the "1–2 calls" premise was wrong
+
+The original decision kept `lf_review`, `lf_judge`, `lf_status` synchronous "because they're
+1–2 model calls." The first live gated run (2026-07-16) disproved that for two of them:
+`lf_review` is a **reviewer panel** (3 sequential models) and `lf_judge` is a **dual
+reasoning-judge** panel where each call ran ~290s live — a round is ~10 minutes. Both
+exceeded the in-app MCP client's tool timeout; a default Cline client (~60s) would fail
+outright. The server always completed and wrote artifacts regardless of client disconnect —
+which is exactly the property the submit→poll model exists to expose.
+
+Decision: **`lf_review` and `lf_judge` become async jobs** (submit → `job_id`; poll
+`lf_job`), stages `review` and `judge`, same idempotency/rediscovery mechanics as `lf_plan`.
+`lf_status` stays synchronous (it makes no model calls). Consequences:
+
+- The judge-retry ledger's escalate check (ADR-007) stays **synchronous at submit** — a third
+  attempt returns `escalate_to_human` instantly with no job and no model calls, preserving the
+  guarantee; the ledger is bumped inside the job on completion. So `lf_judge` returns *either*
+  a `job_id` (submitted) *or* an immediate `escalate_to_human` (refused) — the agent handles
+  both.
+- Results (verdict/scores/coverage, review findings, and the `verdict.md`/`review.md` bytes)
+  land in `job.result`, read via `lf_job`.
+- No sync mode is kept — one consistent submit→poll surface; a fast-sync variant is additive
+  later if a research profile ever wants it.
+
 ## Action Items
 1. [x] Job runner with persistence + idempotent submit (M2, `55dd693`)
 2. [x] Skill poll loop + stage-granular progress strings (skill/local-fusion/SKILL.md)

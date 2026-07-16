@@ -87,7 +87,7 @@ func TestStreamableHTTPContract(t *testing.T) {
 	runner := jobs.NewRunner(2, st, nil)
 	defer runner.Close()
 	RegisterTools(srv, Deps{Runner: runner, Store: st})
-	RegisterStageTools(srv, EngineDeps{Store: st}) // Cfg nil: tools answer structurally
+	RegisterStageTools(srv, PlanDeps{Engine: EngineDeps{Store: st}, Runner: runner}) // Cfg nil: tools answer structurally
 	RegisterPlanTool(srv, PlanDeps{Engine: EngineDeps{Store: st}, Runner: runner})
 	RegisterCoderTool(srv, PlanDeps{Engine: EngineDeps{Store: st}, Runner: runner})
 	RegisterReloadTool(srv, EngineDeps{Store: st})
