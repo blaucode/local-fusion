@@ -7,7 +7,7 @@ a coding agent. Design and implementation docs live in
 Start here:
 
 1. [Quickstart](./quickstart.md) — run the server, verify it's healthy, connect your agent.
-2. [MCP setup per agent](./mcp-setup.md) — Claude Code, Cline, Cursor.
+2. [MCP setup per agent](./mcp-setup.md) — Claude Code, Cline, Cursor, OpenCode.
 3. [The skill](./skill.md) — install the agent-side operating guide that drives the loop.
 4. [Usage](./usage.md) — a full walkthrough of one feature: plan → build → review → judge.
 5. [Configuration](./configuration.md) — keys, provider registry, constitution, auth, flags.

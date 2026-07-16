@@ -14,6 +14,23 @@ Install it into your agent's skills directory (copy or symlink):
 | Claude Code | `~/.claude/skills/local-fusion/SKILL.md` (or a project `.claude/skills/…`) |
 | Cline | `.cline/skills/local-fusion/SKILL.md` in the workspace |
 | Cursor | `.cursor/skills/local-fusion/SKILL.md` in the workspace |
+| OpenCode | add the path to the `instructions` array in `opencode.json` (see below) |
+
+**OpenCode** has no dedicated skills directory. Point its `instructions` array at the
+SKILL.md so the loop is loaded as a rule (project root or global
+`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["skill/local-fusion/SKILL.md"]
+}
+```
+
+Use an absolute path (or a checked-in copy) if you drive local-fusion from a repo other
+than this one. OpenCode also honors the Claude Code skills directory
+(`~/.claude/skills/local-fusion/SKILL.md`) when its Claude-compatibility is enabled — the
+`instructions` entry is the explicit, portable option.
 
 ```sh
 # example: install for Claude Code, symlinked so it tracks the repo
